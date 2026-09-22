@@ -31,15 +31,21 @@ from .text import Document
 WEIGHTS = {"high": 3.0, "medium": 2.0, "low": 1.0}
 
 
-def weight(hit: Hit) -> float:
+def weight(hit: Hit, calibration=None) -> float:
+    """Measured enrichment when available, hand-assigned severity otherwise.
+
+    The severities in rules.py are opinions. A calibration replaces them with
+    a number from a corpus, and a rule that does not discriminate there gets
+    weight 0 rather than the severity somebody guessed for it."""
+    if calibration is not None:
+        return calibration.weight(hit.rule_id, default=1.0)
     return WEIGHTS.get(RULES[hit.rule_id].severity, 1.0)
 
 
-def score(hits: list[Hit], words: int) -> float:
-    """Severity-weighted hits per 1000 words."""
+def score(hits: list[Hit], words: int, calibration=None) -> float:
     if not words:
         return 0.0
-    return round(sum(weight(h) for h in hits) / words * 1000, 2)
+    return round(sum(weight(h, calibration) for h in hits) / words * 1000, 2)
 
 
 @dataclass
@@ -58,8 +64,8 @@ class ParagraphScore:
                 f"[{', '.join(self.rules)}]")
 
 
-def worst_paragraphs(doc: Document, hits: list[Hit], limit: int = 3
-                     ) -> list[ParagraphScore]:
+def worst_paragraphs(doc: Document, hits: list[Hit], limit: int = 3,
+                     calibration=None) -> list[ParagraphScore]:
     """Paragraphs ranked by weighted hit density.
 
     Density, not count: a 200-word paragraph with four hits is in better shape
@@ -85,7 +91,8 @@ def worst_paragraphs(doc: Document, hits: list[Hit], limit: int = 3
             line=doc.line(para.start),
             words=words,
             hits=len(inside),
-            weighted=round(sum(weight(h) for h in inside) / words * 1000, 1),
+            weighted=round(sum(weight(h, calibration) for h in inside)
+                           / words * 1000, 1),
             rules=tuple(dict.fromkeys(h.rule_id for h in inside)),
             preview=para.text[:60].replace("\n", " "),
         ))

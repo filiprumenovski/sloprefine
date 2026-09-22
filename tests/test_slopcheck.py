@@ -1285,3 +1285,94 @@ def test_document_redundancy_does_not_subsume_local_shape_rules():
     assert len(parallel.doublets(Document(balanced + carrier))) > \
         len(parallel.doublets(Document(broken + carrier)))
     assert abs(with_doublets.repeat_4 - without.repeat_4) < 0.03
+
+
+# ------------------------------------------ v1.3: measured calibration
+
+from slopcheck import calibration as cal_mod
+
+
+def _audit_json():
+    ai = [(f"a{i}.txt", "We delve into the intricate realm of it. " * 12)
+          for i in range(6)]
+    human = [(f"h{i}.txt", "The buffer sat on the bench until somebody "
+                           "remembered it was there at all. " * 12)
+             for i in range(6)]
+    return audit_mod.audit(ai, human, CFG).as_dict()
+
+
+def test_calibration_weights_are_log_enrichment():
+    """Enrichment is a ratio, and a rule firing 16x more often is not 16
+    times as informative as one firing 2x."""
+    cal = cal_mod.Calibration.from_audit({
+        "rules": [{"rule": "vocab", "enrichment": 8.0, "verdict": "live",
+                   "ai_per_1k": 5.0, "human_per_1k": 0.6}],
+        "n_ai": 10, "n_human": 10})
+    assert cal.weight("vocab") == 3.0          # log2(8)
+
+
+def test_rules_that_do_not_discriminate_get_zero_weight():
+    """A rule firing more on human text carries no evidence for what this
+    tool is for. Zero, not negative: a document should not earn credit for
+    containing one."""
+    cal = cal_mod.Calibration.from_audit({
+        "rules": [
+            {"rule": "fragments", "enrichment": 0.37, "verdict": "inverted",
+             "ai_per_1k": 1.2, "human_per_1k": 3.2},
+            {"rule": "recap", "enrichment": 1.15, "verdict": "dead",
+             "ai_per_1k": 0.05, "human_per_1k": 0.05},
+        ],
+        "n_ai": 10, "n_human": 10})
+    assert cal.weight("fragments") == 0.0
+    assert cal.weight("recap") == 0.0
+    assert set(cal.inverted()) == {"fragments", "recap"}
+
+
+def test_calibration_round_trips_including_infinity():
+    """Regression: JSON has no infinity, so to_json writes a string, and load
+    let it reach a numeric comparison as a str."""
+    cal = cal_mod.Calibration.from_audit(_audit_json(), corpus="test")
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+        fh.write(cal.to_json())
+        path = fh.name
+    again = cal_mod.Calibration.load(path)
+    assert again.weights == cal.weights
+    assert again.summary()          # must not raise on an inf enrichment
+
+
+def test_calibration_rejects_unknown_version():
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+        fh.write('{"version": 99}')
+        path = fh.name
+    with pytest.raises(ValueError, match="version"):
+        cal_mod.Calibration.load(path)
+
+
+def test_calibrated_score_differs_from_hand_assigned_severity():
+    text = "We delve into the intricate realm. One gene. One site. " + FILLER
+    cal = cal_mod.Calibration.from_audit(_audit_json())
+    plain = analyze("x.txt", text, Config(min_sentence_words=5))
+    tuned = analyze("x.txt", text, Config(min_sentence_words=5, calibration=cal))
+    assert plain.total == tuned.total          # same hits
+    assert plain.score != tuned.score          # different weight
+
+
+def test_shipped_fiction_calibration_loads_and_is_scoped():
+    """The shipped calibration must carry its scope, because a rule that
+    discriminates on 2023 models writing fiction may be dead on 2026 models
+    writing abstracts."""
+    root = Path(__file__).resolve().parents[1]
+    cal = cal_mod.Calibration.load(root / "calibration" / "fiction-2023.json")
+    assert cal.n_machine > 0 and cal.n_human > 0
+    assert "fiction" in cal.note.lower()
+    assert cal.weight("vague") > cal.weight("fragments")
+
+
+def test_fully_suppressed_file_does_not_crash():
+    """Regression: a file whose whole body sits inside a suppression region
+    masks to whitespace, and statistics.mean raised on the empty counter."""
+    result = analyze("x.md", "<!-- slopcheck: off -->\nEverything here.\n", CFG)
+    assert result.total == 0
+    assert result.style is not None

@@ -35,7 +35,8 @@ pre-2022 prescription, because prescription is what put the pattern in the
 training data in the first place. That is how the rule of three became a
 detection marker.
 
-Cite the corpus, the reader population, and the effect direction. Say which
+Cite the corpus, say who the readers were, and give the direction of the
+effect. Say which
 audience it applies to; `reader.py` takes one because the evidence says the
 two reader clusters want different things. If you approximate a feature the
 source measured with a model, name the proxy in the code and in the output.
@@ -55,10 +56,10 @@ Length-correct anything derived from token counts. Type-token ratio and
 Shannon entropy both fall with document length for arithmetic reasons, so an
 uncorrected feature measures how long the document is and reports it as style.
 
-Do not add a threshold. `stylometry.py` ships no population cutoffs, and the
-reason is in `voice.py`: a cutoff transferred between corpora is the documented
-failure mode of deployed detectors, and it lands hardest on non-native
-speakers. If a feature is only meaningful against a threshold, it belongs in
+Do not add a threshold. `stylometry.py` deliberately ships without population cutoffs. The reason
+is in `voice.py`, where a cutoff transferred between corpora turns out to be
+the documented failure mode of deployed detectors, landing hardest on
+non-native speakers. If a feature is only meaningful against a threshold, it belongs in
 the voiceprint layer as a deviation, not in the report as a judgement.
 
 ## Running everything

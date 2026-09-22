@@ -40,6 +40,7 @@ class Config:
     voice: voice_mod.Voiceprint | None = None
     voice_path: str | None = None
     z_threshold: float = 2.0
+    calibration: object | None = None
     audience: str | None = None  # "expert" | "general"; None disables
 
     @classmethod
@@ -97,11 +98,14 @@ class Result:
     def total(self) -> int:
         return len(self.hits)
 
+    calibration: object | None = field(default=None, repr=False)
+
     @property
     def score(self) -> float:
-        """Severity-weighted hits per 1000 words."""
+        """Weighted hits per 1000 words. Uses measured enrichment when a
+        calibration is supplied, hand-assigned severity otherwise."""
         w = self.metrics.words if self.metrics else 0
-        return weighting_mod.score(self.hits, w)
+        return weighting_mod.score(self.hits, w, self.calibration)
 
     @property
     def per_1k(self) -> float:
@@ -155,7 +159,8 @@ def analyze(path: str, text: str, config: Config) -> Result:
         style=style, deviations=deviations, voice_notes=notes,
         reader=signals, reader_notes=reader_notes, cadence=cad,
         structure=structure,
-        worst=weighting_mod.worst_paragraphs(doc, hits),
+        worst=weighting_mod.worst_paragraphs(doc, hits, calibration=config.calibration),
+        calibration=config.calibration,
         templates=tmpl,
     )
 
@@ -250,6 +255,8 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
         "  " + c(BOLD, "total ") + c(total_color, str(result.total))
         + f"  ({result.per_1k}/1k, weighted {result.score}/1k)"
     )
+    if result.calibration is not None:
+        out.append("  " + c(DIM, result.calibration.summary()))
     if result.worst:
         out.append("  " + c(BOLD, "worst  ") + result.worst[0].render())
     _ = doc_lines

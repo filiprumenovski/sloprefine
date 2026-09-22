@@ -127,8 +127,11 @@ def compute(doc: Document) -> Stylometry:
     bits = -sum(p * math.log2(p) for p in probs)
     entropy_norm = bits / math.log2(types) if types > 1 else 0.0
 
+    # A document can legitimately be empty here: a file whose entire body
+    # sits inside a suppression region masks to whitespace, and statistics
+    # raises rather than returning zero.
     counts = list(freqs.values())
-    mean_f = statistics.mean(counts)
+    mean_f = statistics.mean(counts) if counts else 0.0
     burst = (statistics.pstdev(counts) / mean_f) if mean_f else 0.0
 
     content = [t for t in tokens if t not in STOPWORDS]

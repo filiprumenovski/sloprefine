@@ -29,6 +29,7 @@ __all__ = [
     "analyze",
     "audit",
     "cadence",
+    "calibration",
     "compute",
     "drift",
     "paragraph",

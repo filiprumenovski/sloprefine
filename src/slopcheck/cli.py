@@ -45,6 +45,9 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--allow", action="append", default=[], metavar="WORD")
     p.add_argument("--allow-domain-words", action="store_true",
                    help=f"exempt: {', '.join(sorted(COMMONLY_LEGITIMATE))}")
+    p.add_argument("--calibration", metavar="FILE",
+                   help="weight rules by measured enrichment instead of "
+                        "hand-assigned severity (see slopcheck audit --save)")
     p.add_argument("--voice", metavar="FILE",
                    help="voiceprint JSON; report stylometry as deviation "
                         "from your own baseline instead of raw values")
@@ -221,6 +224,10 @@ def _cmd_audit(argv: list[str]) -> int:
                    help="directory of human-written text")
     p.add_argument("--audience", choices=("expert", "general"), default="expert")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--save", metavar="FILE",
+                   help="write a calibration file: per-rule weights measured "
+                        "from these corpora, for use with check --calibration")
+    p.add_argument("--corpus-note", default="", metavar="TEXT")
     args = p.parse_args(argv)
     try:
         report = audit(load_corpus(args.ai), load_corpus(args.human),
@@ -228,6 +235,11 @@ def _cmd_audit(argv: list[str]) -> int:
     except (OSError, ValueError) as exc:
         print(f"slopcheck: {exc}", file=sys.stderr)
         return 2
+    if args.save:
+        from .calibration import Calibration
+        cal = Calibration.from_audit(report.as_dict(), note=args.corpus_note)
+        Path(args.save).write_text(cal.to_json(), encoding="utf-8")
+        print(cal.summary(), file=sys.stderr)
     if args.json:
         import json
         print(json.dumps(report.as_dict(), indent=2))
@@ -240,6 +252,15 @@ def _cmd_check(args) -> int:
     if not args.paths:
         print("slopcheck: no input files", file=sys.stderr)
         return 2
+
+    calibration = None
+    if args.calibration:
+        from .calibration import Calibration
+        try:
+            calibration = Calibration.load(args.calibration)
+        except (OSError, ValueError) as exc:
+            print(f"slopcheck: calibration: {exc}", file=sys.stderr)
+            return 2
 
     config = Config.load()
     unknown = set(args.disable) - set(RULES)
@@ -282,6 +303,7 @@ def _cmd_check(args) -> int:
         voice=voiceprint,
         z_threshold=args.z_threshold,
         audience=args.audience or config.audience,
+        calibration=calibration,
     )
 
     results = []
