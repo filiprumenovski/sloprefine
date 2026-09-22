@@ -166,8 +166,8 @@ reference-less features and per-reader preference models.
 Their first finding is that there is no single target. Reader preferences
 cluster into two profiles. Lay readers weight readability, sentence length,
 syntactic depth and lexical diversity, and they frequently prefer machine
-text. Experts weight sentiment dynamics, sentence rhythm, rhetorical variety
-and thematic entropy, and they do not. A tool that emits one universal
+text. Experts weight sentiment dynamics and sentence rhythm, along with
+rhetorical variety and thematic entropy, and they do not. A tool that emits one universal
 definition of good writing is asserting something the data denies, so
 `--audience expert|general` is required to turn this layer on.
 
@@ -192,9 +192,9 @@ structurally. Machine prose is smoother between adjacent sentences than the
 prose experts prefer, which means the usual advice to improve flow is pointed
 in the wrong direction for that audience.
 
-Three of their features need models this package will not require: local
-coherence via sentence embeddings, thematic entropy via LDA, and rhetorical
-variety via a large model. Each is approximated with a lexical proxy and each
+Three of their features need models this package will not require. Local
+coherence wants sentence embeddings. Thematic entropy wants LDA, and
+rhetorical variety wants a large model. Each is approximated with a lexical proxy and each
 proxy is labeled as one in the output. The sentiment proxy abstains rather
 than reporting a number when too few valence tokens match, which is the normal
 case for technical prose.
@@ -210,9 +210,9 @@ device carries most of the work. The failure is not three items, it is three ite
 slopcheck audit --ai out/gpt-drafts --human ~/writing/mine
 ```
 
-Everything above is dated. The fixes in this repository are being published,
-absorbed, and trained on right now, and some of them will be markers of
-machine text within a year. A tool built on a fixed list decays silently.
+Everything above is dated. The fixes in this repository are being published right now.
+Models absorb them, then train on them, and some will be markers of machine
+text within a year. A tool built on a fixed list decays silently.
 
 `audit` makes the decay measurable. Point it at a corpus of machine text and a
 corpus of human text and it reports, per rule, how much more often the pattern

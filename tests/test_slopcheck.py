@@ -42,8 +42,8 @@ def test_offsets_point_at_source():
     ("A thought \u2014 interrupted.", "emdash"),
     ("This isn't just chemistry.", "negation"),
     ("It's not about the enzyme, it's the substrate.", "negation"),
-    ("Fast, cheap, and reliable.", "tricolon"),
-    ("No order. No motif. No structure.", "tricolon"),
+    ("Fast, cheap, and reliable.", "parallel"),   # subsumed: see _drop_subsumed_tricolons
+    ("No order. No motif. No structure.", "parallel"),
     ("One gene. One site. Ten substrates. But scale matters here somehow.", "fragments"),
     ("Moreover, the data held.", "transitions"),
     ("Here's the thing: it worked.", "narrator"),
@@ -79,7 +79,8 @@ def test_slop_control_lights_up():
     result = analyze("slop", (CORPUS / "slop_control.txt").read_text(), CFG)
     assert result.total >= 20
     fired = {rid for rid, n in result.counts().items() if n}
-    assert {"vocab", "negation", "tricolon", "narrator", "transitions"} <= fired
+    assert {"vocab", "negation", "narrator", "transitions"} <= fired
+    assert fired & {"tricolon", "parallel"}
 
 
 def test_clean_control_is_silent():
@@ -360,9 +361,11 @@ def test_rules_subcommand_lists_every_rule(capsys):
 
 
 def test_tricolon_ignores_lists_of_proper_nouns():
-    """Regression: "Shan, Lee and Hao" is a citation, not a cadence choice."""
-    assert "tricolon" not in ids("The core set comes from Shan, Lee and Hao (2026).")
-    assert "tricolon" in ids("It was fast, cheap and reliable throughout.")
+    """Regression: "Shan, Lee and Hao" is a citation, not a cadence choice.
+    The exemption has to hold in both the narrow rule and the general one."""
+    citation = ids("The core set comes from Shan, Lee and Hao (2026).")
+    assert "tricolon" not in citation and "parallel" not in citation
+    assert "parallel" in ids("It was fast, cheap and reliable throughout.")
 
 
 def test_colon_check_does_not_span_a_block_lead_in():
@@ -831,3 +834,105 @@ def test_cli_min_sentence_flag(tmp_path, capsys, monkeypatch):
     assert "2w, floor 5" not in capsys.readouterr().out
     main([str(f), "--min-sentence", "5", "--no-color"])
     assert "2w, floor 5" in capsys.readouterr().out
+
+
+# --------------------------------------------- v0.7: general parallelism
+
+from slopcheck import parallel
+
+PAR = Config(parallel_budget_per_1k=0.0)
+
+# Repeating one sentence would itself be a parallel run, which is correct
+# behaviour and useless as filler.
+FILLER = " ".join([
+    "The buffer sat on the bench until somebody remembered it.",
+    "Nobody had checked the timer since the protocol was adapted.",
+    "A reading came back flat on the second plate that morning.",
+    "She asked a question that had not occurred to anyone else.",
+    "Two weeks went by before the obvious explanation surfaced.",
+    "I still have not gone back to check the original number.",
+    "The gel ran slowly and the room stayed cold all afternoon.",
+    "Somebody adapted this from a paper about a different enzyme.",
+] * 5)
+
+
+
+def _runs(text):
+    return parallel.find(Document(text))
+
+
+@pytest.mark.parametrize("text,arity", [
+    ("It was fast, cheap and reliable.", 3),               # no Oxford comma
+    ("It was fast, cheap, and reliable.", 3),
+    ("We used serine, threonine and proline as the acceptors.", 3),  # trailing tail
+    ("No order. No motif. No structure.", 3),
+    ("No order. No motif. No structure. No spacing.", 4),  # tetracolon escape
+    ("No sense of order here. No motif to speak of. No structure at all.", 3),
+    ("We trained on human. We tested on rice. We ran it backwards.", 3),
+])
+def test_parallelism_is_arity_independent(text, arity):
+    """Banning three items moves a generator to four. The shape is the
+    target, so the run length is reported rather than required."""
+    runs = _runs(text)
+    assert runs and max(r.arity for r in runs) == arity
+
+
+@pytest.mark.parametrize("text", [
+    "The buffer was cold, and nobody had checked the timer before we started.",
+    "It was fast and cheap.",
+    "The core set comes from Shan, Lee and Hao at Boston University.",
+    "This is Binoculars (Hans et al., ICML 2024), whose ratio reaches ninety.",
+    "She asked why we measured at thirty minutes and nobody had an answer.",
+])
+def test_parallelism_leaves_ordinary_prose_alone(text):
+    assert _runs(text) == []
+
+
+def test_padding_one_item_does_not_defeat_the_match():
+    """Length bucketing is coarse on purpose. With exact matching, adding a
+    word to the third item breaks the run and the check goes silent."""
+    assert _runs("One gene. One catalytic site. One single solitary site.")
+
+
+def test_clean_control_has_no_parallel_runs():
+    assert _runs((CORPUS / "clean_control.txt").read_text()) == []
+
+
+def test_parallelism_is_a_budget_not_a_ban():
+    text = "It was fast, cheap and reliable. " + FILLER
+    generous = analyze("x.txt", text, Config(parallel_budget_per_1k=5.0))
+    strict = analyze("x.txt", text, Config(parallel_budget_per_1k=0.0))
+    assert generous.counts()["parallel"] == 0
+    assert strict.counts()["parallel"] == 1
+
+
+def test_budget_is_spent_on_the_widest_runs_first():
+    """A tetracolon should cost more than a tricolon, so the allowance is
+    spent on the worst offender and the hit lands on the rest."""
+    text = ("No order. No motif. No structure. No spacing. " + FILLER
+            + " It was fast, cheap and reliable.")
+    # budget set so the allowance is exactly one run for this length
+    hits = [h for h in analyze("x.txt", text, Config(parallel_budget_per_1k=2.5)).hits
+            if h.rule_id == "parallel"]
+    assert len(hits) == 1
+    assert "3 units" in hits[0].note      # the tetracolon consumed the budget
+
+
+def test_tricolon_hits_are_not_double_counted():
+    counts = analyze("x.txt", "It was fast, cheap and reliable.", PAR).counts()
+    assert counts["parallel"] == 1 and counts["tricolon"] == 0
+
+
+def test_normalization_does_not_manufacture_runs():
+    """Regression: growing a run outward from one matching unit produced
+    three-unit runs out of a single real match."""
+    prose = ("They must be computable offline, with no language model and "
+             "nothing that needs corpus statistics, so that a draft can be "
+             "checked on a laptop tomorrow.")
+    assert _runs(prose) == []
+
+
+def test_normalization_does_not_break_anaphora():
+    """Regression: trimming the stem off item one removed the repeated
+    opening word that anaphora is defined by."""
+    assert _runs("You find a site, you mutate the serine, you run your assay.")

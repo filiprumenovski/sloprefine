@@ -236,6 +236,19 @@ _rule(
 )
 
 _rule(
+    id="parallel",
+    title="parallelism over budget",
+    citation="[CL][PALV][GK]",
+    severity="high",
+    why="A repeated syntactic skeleton at any arity. Banning three items "
+        "just moves a generator to four; this counts the shape instead, and "
+        "allows a budget because parallelism is a real device.",
+    fix="Break the shape. Rewrite one unit with a different structure, or "
+        "collapse the run into a single sentence. Adding a fourth item does "
+        "not help.",
+)
+
+_rule(
     id="runt",
     title="sentence under the floor",
     citation="[FB][local]",

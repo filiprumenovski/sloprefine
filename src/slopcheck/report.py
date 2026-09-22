@@ -26,6 +26,7 @@ class Config:
     min_sentence_words: int = 0  # 0 disables
     runt_mode: str = "verbless"   # "verbless" | "all"
     allow_runts: frozenset[str] = frozenset()
+    parallel_budget_per_1k: float = 1.0
     max_choppiness: float | None = None
     max_hits: int | None = None
     max_per_1k: float | None = None
@@ -59,6 +60,7 @@ class Config:
             max_choppiness=data.get("max_choppiness"),
             min_sentence_words=data.get("min_sentence_words", 0),
             runt_mode=data.get("runt_mode", "verbless"),
+            parallel_budget_per_1k=data.get("parallel_budget_per_1k", 1.0),
             allow_runts=frozenset(data.get("allow_runts", [])),
             skip_code_blocks=data.get("skip_code_blocks", True),
             voice_path=data.get("voice"),
@@ -108,6 +110,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         doc, disabled=config.disabled, allow=config.allow,
         floor=config.min_sentence_words, runt_mode=config.runt_mode,
         allow_runts=config.allow_runts,
+        parallel_budget_per_1k=config.parallel_budget_per_1k,
     )
     style = stylometry_mod.compute(doc)
     deviations, notes = {}, []

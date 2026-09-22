@@ -7,13 +7,12 @@ reading the rationale. `why` explains the rule to a person; `fix` is what gets
 shipped into the revision loop and into `slopcheck prompt`. A test asserts
 every rule has one.
 
-
-Every rule needs a source. Not a vibe, a source: a study, a corpus analysis, or
-a written argument someone put their name on. Add the short key and full
+Every rule also needs a source, meaning not a vibe but something someone put
+their name on: a study, a corpus analysis, or a written argument. Add the short key and full
 reference to the docstring at the top of `src/slopcheck/rules.py`, then declare
 the rule with `_rule(...)` and give it a `why` that a writer can act on.
 
-A rule also needs:
+Two more things are required.
 
 1. A positive test in `tests/test_slopcheck.py::test_rule_fires`.
 2. No new hits on `corpus/clean_control.txt`. That file is a regression fence.
@@ -47,10 +46,10 @@ current models is not a signal yet.
 
 ## Adding a stylometric feature
 
-The bar here is different. Features go in `stylometry.py` and must be computable with no
-language model, no API call, and no corpus-level statistics, so that a draft
-can be checked offline on a laptop and the number means the same thing
-tomorrow.
+The bar here is different. Features go in `stylometry.py`. They must be
+computable offline, with no language model and nothing that needs
+corpus-level statistics, so that a draft can be checked on a laptop and
+the number still means the same thing tomorrow.
 
 Length-correct anything derived from token counts. Type-token ratio and
 Shannon entropy both fall with document length for arithmetic reasons, so an

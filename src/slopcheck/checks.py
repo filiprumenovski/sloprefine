@@ -153,6 +153,7 @@ def run_checks(
     floor: int = MIN_SENTENCE_WORDS,
     runt_mode: str = "verbless",
     allow_runts: frozenset[str] = frozenset(),
+    parallel_budget_per_1k: float = 1.0,
 ) -> list[Hit]:
     hits: list[Hit] = []
     for rule_id, fn in CHECKS.items():
@@ -162,9 +163,23 @@ def run_checks(
             hits += check_vocab(doc, allow)
         elif rule_id == "runt":
             hits += check_runt(doc, floor, runt_mode, allow_runts)
+        elif rule_id == "parallel":
+            hits += check_parallel(doc, parallel_budget_per_1k)
         else:
             hits += fn(doc)
-    return sorted(hits, key=lambda h: h.start)
+    return _drop_subsumed_tricolons(sorted(hits, key=lambda h: h.start))
+
+
+def _drop_subsumed_tricolons(hits: list[Hit]) -> list[Hit]:
+    """`tricolon` is the narrow cited case and `parallel` is the general one.
+    Where they overlap the same construction is one problem, not two, so the
+    narrow hit is dropped rather than counted twice."""
+    wide = [h for h in hits if h.rule_id == "parallel"]
+    return [
+        h for h in hits
+        if h.rule_id != "tricolon"
+        or not any(w.start <= h.start and h.end <= w.end for w in wide)
+    ]
 
 
 # ---------------------------------------------------------------- v0.2 checks
@@ -256,6 +271,29 @@ def check_runt(
     return hits
 
 
+def check_parallel(doc: Document, budget_per_1k: float = 1.0) -> list[Hit]:
+    """Runs of repeated syntactic skeleton beyond the document's allowance.
+
+    Budget, not ban. Parallelism is a real device and good writers use it;
+    what marks machine prose is using it constantly. The allowance is spent
+    on the widest runs first, so a tetracolon costs more than a tricolon and
+    the fix instruction lands on the worst offender rather than the earliest.
+    """
+    from .parallel import find
+
+    runs = find(doc)
+    if not runs:
+        return []
+    allowance = int(doc.word_count / 1000 * budget_per_1k)
+    over = sorted(runs, key=lambda r: (-r.arity, r.start))[allowance:]
+    return [
+        Hit("parallel", r.start, r.end, r.preview,
+            f"{r.arity} units, {r.level}, budget {budget_per_1k}/1k")
+        for r in sorted(over, key=lambda r: r.start)
+    ]
+
+
+CHECKS["parallel"] = check_parallel
 CHECKS["runt"] = check_runt
 CHECKS["fromto"] = lambda d: _regex_check(d, "fromto")
 CHECKS["opener"] = check_opener

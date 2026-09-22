@@ -9,6 +9,11 @@ allow = ["landscape", "robust"]
 # use. Enabled here as this repository's own house policy.
 #   runt_mode = "verbless" refuses "One gene." but keeps "It worked."
 #   runt_mode = "all"      refuses everything under the floor
+# Parallelism runs allowed per 1000 words. Documentation enumerates things
+# for a living, so this repo's own prose runs higher than a talk would.
+# A conference talk should sit at 1.0 or below.
+parallel_budget_per_1k = 3.0
+
 min_sentence_words = 5
 runt_mode = "verbless"
 allow_runts = ["Thank you."]
