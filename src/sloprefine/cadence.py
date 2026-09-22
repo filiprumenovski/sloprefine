@@ -44,7 +44,7 @@ available: a conference talk a domain expert called machine-sounding (0.25)
 and a revision written to fix that reaction (0.09). That is ONE label. The
 first threshold tried here was 0.40, picked by intuition, and it passed the
 document the expert had already rejected, which is the whole argument against
-picking thresholds by intuition. Replace it with `slopcheck audit` numbers
+picking thresholds by intuition. Replace it with `sloprefine audit` numbers
 from a corpus you trust.
 
 Note the word-weighting matters. The rejected talk had 57% of its SENTENCES

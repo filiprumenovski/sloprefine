@@ -1,6 +1,6 @@
 # audit-demo
 
-<!-- slopcheck: off -->
+<!-- sloprefine: off -->
 
 Twelve short documents, six per side, so `sloprefine audit` runs out of the box
 and the enrichment table in the main README reproduces.

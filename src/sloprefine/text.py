@@ -83,16 +83,19 @@ def paragraph_spans(text: str) -> list[Span]:
     return spans
 
 
-_OFF = re.compile(r"slopcheck:\s*off\b", re.IGNORECASE)
-_ON = re.compile(r"slopcheck:\s*on\b", re.IGNORECASE)
+# Both spellings are accepted. The marker is written into user documents,
+# so renaming the tool must not silently un-suppress a region somebody
+# marked a year ago.
+_OFF = re.compile(r"slop(?:check|refine):\s*off\b", re.IGNORECASE)
+_ON = re.compile(r"slop(?:check|refine):\s*on\b", re.IGNORECASE)
 _FENCE = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
 
 
 def suppressed_ranges(text: str, skip_code: bool = False) -> list[tuple[int, int]]:
     """Regions exempt from checking.
 
-    A line containing ``slopcheck: off`` suppresses everything until a line
-    containing ``slopcheck: on`` (or end of file). In Markdown both go inside
+    A line containing ``sloprefine: off`` suppresses everything until a line
+    containing ``sloprefine: on`` (or end of file). In Markdown both go inside
     HTML comments. With ``skip_code``, fenced code blocks are exempt too: a
     linter that flags the examples in its own docs gets switched off entirely.
     """

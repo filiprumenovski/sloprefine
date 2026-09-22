@@ -1,7 +1,7 @@
-# slopcheck's own configuration, which doubles as a worked example.
+# sloprefine's own configuration, which doubles as a worked example.
 # "landscape" and "robust" are on the excess-vocabulary list and are also
 # ordinary words in this repository's subject matter.
-[slopcheck]
+[sloprefine]
 allow = ["landscape", "robust"]
 
 # The sentence floor. Off by default in code because it is the one rule with

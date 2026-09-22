@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "sloprefinery: a slop refinery for prose"
+title: "sloprefine: a slop refinery for prose"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
@@ -8,7 +8,7 @@ authors:
     affiliation: "Wayne State University"
 repository-code: "https://github.com/USERNAME/REPONAME"
 license: MIT
-version: 1.5.0
+version: 1.6.0
 date-released: 2026-09-22
 abstract: >-
   A dependency-free prose linter that flags the documented surface markers of

@@ -16,7 +16,7 @@ returns that ordering.
 
 The weights are a judgement, not a measurement. They encode that cadence and
 structure outrank vocabulary, which is what the one human reaction available
-on this repository's origin document actually reacted to. `slopcheck audit`
+on this repository's origin document actually reacted to. `sloprefine audit`
 against a real corpus pair is how they get replaced with evidence.
 """
 

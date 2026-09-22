@@ -1,4 +1,4 @@
-"""MCP server: slopcheck as tools an agent can call on its own drafts.
+"""MCP server: sloprefine as tools an agent can call on its own drafts.
 
 Design notes, because the obvious wrapping is the wrong one
 -----------------------------------------------------------
@@ -26,12 +26,12 @@ prose, which is the opposite of what this package is for.
 
 Run:
 
-    pip install "sloprefinery[mcp]"
+    pip install "sloprefine[mcp]"
     sloprefine-mcp
 
 Claude Desktop / Claude Code config:
 
-    {"mcpServers": {"slopcheck": {"command": "sloprefine-mcp"}}}
+    {"mcpServers": {"sloprefine": {"command": "sloprefine-mcp"}}}
 """
 
 from __future__ import annotations
@@ -54,12 +54,12 @@ try:
     from mcp.server.mcpserver import MCPServer
 except ImportError as exc:  # pragma: no cover - optional extra
     raise ImportError(
-        'the MCP server needs the optional extra: pip install "sloprefinery[mcp]"'
+        'the MCP server needs the optional extra: pip install "sloprefine[mcp]"'
     ) from exc
 
 
 server = MCPServer(
-    name="slopcheck",
+    name="sloprefine",
     instructions=(
         "Lints prose for the published markers of machine-generated writing, "
         "for use on your own drafts before returning them.\n\n"
@@ -88,7 +88,7 @@ def _load(text: str | None, path: str | None) -> tuple[str, str]:
 
 
 def _config(profile: Profile | None, config_path: str = "") -> Config:
-    """Defaults plus the profile, NOT whatever .slopcheck.toml happens to sit
+    """Defaults plus the profile, NOT whatever .sloprefine.toml happens to sit
     in the server's working directory.
 
     An MCP server is launched by the agent host from an arbitrary cwd, so

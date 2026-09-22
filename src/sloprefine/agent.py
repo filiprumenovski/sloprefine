@@ -1,6 +1,6 @@
 """The agent loop: generate, check, revise, stop.
 
-slopcheck's primary consumer is a model revising its own draft, not a person
+sloprefine's primary consumer is a model revising its own draft, not a person
 reading a report. That changes three things.
 
 **Output is imperative and cheap.** A revising model does not need the citation

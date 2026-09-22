@@ -1,4 +1,4 @@
-"""slopcheck: lint prose against published AI-writing tells."""
+"""sloprefine: lint prose against published AI-writing tells."""
 
 from . import agent, audit, cadence, paragraph, parallel, reader, scorer, stylometry, voice
 from .agent import Drift, Instruction, Review, drift, review, style_contract
@@ -10,7 +10,7 @@ from .stylometry import Stylometry
 from .text import Document
 from .voice import Voiceprint
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __all__ = [
     "RULES",
     "Config",

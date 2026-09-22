@@ -1,4 +1,4 @@
-# slopcheck
+# sloprefine
 
 This is a slop refinery. Crude prose goes in, and something with fewer of the
 documented markers of machine-generated writing comes out. The residue is
@@ -71,14 +71,14 @@ confidently.
 CI fails if this README scores above zero, which rules out most of the ways a
 README is usually funny.
 
-<!-- slopcheck: off (the next paragraph commits every violation it names,
+<!-- sloprefine: off (the next paragraph commits every violation it names,
      which is the point, and it is the only hand-written exemption in the
      repository that is not a table of rule names) -->
 
 No fragments for emphasis. No rule of three. No "it's not a linter, it's a
 refinery."
 
-<!-- slopcheck: on -->
+<!-- sloprefine: on -->
 
 Writing the marketing copy under the marketing copy's own constraints is a
 useful exercise and not a pleasant one.
@@ -103,7 +103,7 @@ needs them.
 
 ### Rules
 
-<!-- slopcheck: off (this table quotes the patterns it documents) -->
+<!-- sloprefine: off (this table quotes the patterns it documents) -->
 
 | rule | catches | source |
 |---|---|---|
@@ -124,7 +124,7 @@ needs them.
 | `hedge` | "That said", "At the end of the day" | Wikipedia |
 | `emoji` | rockets in prose | Wikipedia |
 
-<!-- slopcheck: on -->
+<!-- sloprefine: on -->
 
 `sloprefine rules` prints all of them with citations and rationale.
 
@@ -153,7 +153,7 @@ Two implementation departures from the paper, both deliberate:
 
 - **Length correction.** Type-token ratio and entropy both fall with document
   length for arithmetic reasons, which is why the authors had to stratify
-  their corpora by length. Rather than stratify, `slopcheck` uses a
+  their corpora by length. Rather than stratify, `sloprefine` uses a
   moving-average TTR over a fixed window and normalizes entropy by log2 of
   the type count. A regression test asserts that plain TTR collapses on a
   quadrupled document while the corrected measure holds. Our numbers are
@@ -195,7 +195,7 @@ definition of good writing is asserting something the data denies, so
 Their Table 3 gives per-corpus means for human and machine text, and four
 directions replicate across both expert-annotated corpora:
 
-<!-- slopcheck: off -->
+<!-- sloprefine: off -->
 
 | feature | human | machine | implemented as |
 |---|---|---|---|
@@ -204,7 +204,7 @@ directions replicate across both expert-annotated corpora:
 | sentence rhythm | 11.0, 24.5 | 10.3, 16.9 | stdev of sentence length |
 | local coherence | 0.31, 0.32 | 0.41, 0.48 | content-word overlap between adjacent sentences |
 
-<!-- slopcheck: on -->
+<!-- sloprefine: on -->
 
 The sentiment pair is the largest and the least comfortable: machine text is
 relentlessly positive and flat, and expert-preferred human text varies about
@@ -296,8 +296,8 @@ out of your own corpus rather than out of anyone's rules, including these.
 ### Optional: perplexity structure
 
 ```bash
-pip install "slopcheck[lm]"
-slopcheck draft.md --lm gpt2
+pip install "sloprefine[lm]"
+sloprefine draft.md --lm gpt2
 ```
 
 Reports perplexity and, more usefully, how much perplexity varies across
@@ -311,12 +311,12 @@ implementation if you want detection. This is a writing tool.
 ## MCP server
 
 ```bash
-pip install "slopcheck[mcp]"
+pip install "sloprefine[mcp]"
 sloprefine-mcp
 ```
 
 ```json
-{"mcpServers": {"slopcheck": {"command": "sloprefine-mcp"}}}
+{"mcpServers": {"sloprefine": {"command": "sloprefine-mcp"}}}
 ```
 
 Four tools: `check` returns PASS or the grouped fixes, `drift` compares two
@@ -332,17 +332,17 @@ context on numbers it will not act on. And the round budget travels with the
 result, because the failure mode of a linter in a loop is a model revising
 until the count reaches zero.
 
-The server ignores any `.slopcheck.toml` in its working directory. An agent
+The server ignores any `.sloprefine.toml` in its working directory. An agent
 host launches it from an arbitrary cwd, and picking up a config from there
 would make the same text score differently for invisible reasons. Pass
 `config_path` to use one.
 
 ## Configuration
 
-`.slopcheck.toml`, searched upward from the working directory:
+`.sloprefine.toml`, searched upward from the working directory:
 
 ```toml
-[slopcheck]
+[sloprefine]
 disable = ["colon", "hedge"]
 allow = ["landscape", "robust"]   # domain words exempt from the lexicon
 voice = "me.json"
@@ -356,7 +356,7 @@ gets uninstalled within a week, and then it protects nobody.
 `--allow-domain-words` exempts the usual suspects in one flag.
 
 Fenced code blocks in Markdown are exempt by default, and anything between
-`<!-- slopcheck: off -->` and `<!-- slopcheck: on -->` is skipped, so
+`<!-- sloprefine: off -->` and `<!-- sloprefine: on -->` is skipped, so
 documentation that quotes the patterns does not fail its own lint. CI asserts
 that this README scores zero.
 
@@ -387,13 +387,13 @@ trade above: past a couple of passes the model is writing for the linter.
 As a library:
 
 ```python
-import slopcheck
+import sloprefine
 
-review = slopcheck.review("draft.md", text)
+review = sloprefine.review("draft.md", text)
 if not review.passed:
     feedback = review.render()          # grouped, imperative, compact
     revised = my_model(text, feedback)
-    d = slopcheck.drift(text, revised)
+    d = sloprefine.drift(text, revised)
     text = revised if d.improved else text
 ```
 

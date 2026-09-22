@@ -99,7 +99,7 @@ nothing about text a model edited, and the rest of this package is aimed at
 the latter.
 
 The controls behind these numbers are two documents written by hand for this
-repository. That is not evidence. Run `slopcheck audit` on real corpora
+repository. That is not evidence. Run `sloprefine audit` on real corpora
 before trusting any threshold here.
 """
 

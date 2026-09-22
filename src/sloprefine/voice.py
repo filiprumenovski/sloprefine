@@ -7,7 +7,7 @@ track fluency rather than authorship. Any tool that ships a global "this looks
 AI" cutoff inherits that bias, and inherits it hardest for exactly the writers
 who can least afford it.
 
-The fix used here is to make the baseline personal. Feed slopcheck a folder of
+The fix used here is to make the baseline personal. Feed sloprefine a folder of
 things you wrote before, get a voiceprint: per-feature mean and standard
 deviation across those documents. A new draft is then scored in z-units
 against your own distribution. "Your lexical density is 2.4 sigma below your

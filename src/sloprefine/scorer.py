@@ -1,6 +1,6 @@
 """Optional language-model backend for perplexity-based signals.
 
-Everything else in slopcheck is model-free on purpose. This module is the
+Everything else in sloprefine is model-free on purpose. This module is the
 one place a language model is allowed, it is an optional extra, and it is
 off unless asked for.
 
@@ -21,7 +21,7 @@ What the literature does here
 
 What this module does NOT do
 ----------------------------
-It returns numbers, never a verdict. slopcheck has no "AI-written" output and
+It returns numbers, never a verdict. sloprefine has no "AI-written" output and
 no threshold that would produce one. Binoculars' own authors ship a fixed
 global threshold and still caution against unsupervised use; the same caution,
 applied honestly, means a writing tool should surface the signal and stop.
@@ -98,8 +98,8 @@ def measure(scorer: Scorer, text: str, window: int = 32) -> PerplexitySignal:
 class TransformersScorer:
     """Causal-LM scorer. Requires the optional 'lm' extra.
 
-        pip install "slopcheck[lm]"
-        slopcheck check draft.md --lm gpt2
+        pip install "sloprefine[lm]"
+        sloprefine check draft.md --lm gpt2
 
     Small models are fine here. We report perplexity structure, not a verdict,
     so the observer/performer pair that [HAN24] needs is not required. If you
@@ -114,7 +114,7 @@ class TransformersScorer:
         except ImportError as exc:  # pragma: no cover - optional path
             raise ImportError(
                 "the --lm option needs the optional extra: "
-                'pip install "slopcheck[lm]"'
+                'pip install "sloprefine[lm]"'
             ) from exc
         self._torch = torch
         self.name = model_name

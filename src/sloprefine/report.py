@@ -20,7 +20,10 @@ from .checks import Hit, run_checks
 from .rules import RULES
 from .text import Document, markdown_furniture, mask, suppressed_ranges
 
-CONFIG_NAMES = (".slopcheck.toml", "slopcheck.toml")
+# New name first, old name still honoured: renaming the tool should not
+# silently drop the settings of anyone already using it.
+CONFIG_NAMES = (".sloprefine.toml", "sloprefine.toml",
+                ".slopcheck.toml", "slopcheck.toml")
 
 
 @dataclass
@@ -57,7 +60,8 @@ class Config:
 
     @classmethod
     def from_toml(cls, path: Path) -> Config:
-        data = tomllib.loads(path.read_text()).get("slopcheck", {})
+        parsed = tomllib.loads(path.read_text())
+        data = parsed.get("sloprefine", parsed.get("slopcheck", {}))
         unknown = set(data.get("disable", [])) - set(RULES)
         if unknown:
             raise ValueError(f"{path}: unknown rule(s): {sorted(unknown)}")

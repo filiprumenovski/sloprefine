@@ -1,6 +1,6 @@
 # calibration
 
-<!-- slopcheck: off -->
+<!-- sloprefine: off -->
 
 Per-rule weights measured from a labelled corpus pair, rather than the
 severities assigned by hand in `rules.py`.
@@ -40,7 +40,7 @@ Measured enrichment, machine rate over human rate:
 Half the rule set does not discriminate here, and eight rules fire MORE on the
 human side.
 
-<!-- slopcheck: on -->
+<!-- sloprefine: on -->
 
 ## Read the scope before believing any of it
 

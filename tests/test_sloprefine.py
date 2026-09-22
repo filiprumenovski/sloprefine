@@ -2,11 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from slopcheck import Document, analyze, compute, render_text
-from slopcheck.checks import CHECKS, run_checks
-from slopcheck.cli import main
-from slopcheck.report import Config
-from slopcheck.rules import RULES
+from sloprefine import Document, analyze, compute, render_text
+from sloprefine.checks import CHECKS, run_checks
+from sloprefine.cli import main
+from sloprefine.report import Config
+from sloprefine.rules import RULES
 
 CORPUS = Path(__file__).resolve().parents[1] / "corpus"
 CFG = Config()
@@ -108,11 +108,11 @@ def test_disable_turns_a_rule_off():
 
 
 def test_config_rejects_unknown_rule(tmp_path):
-    (tmp_path / ".slopcheck.toml").write_text(
+    (tmp_path / ".sloprefine.toml").write_text(
         '[slopcheck]\ndisable = ["nonsense"]\n'
     )
     with pytest.raises(ValueError):
-        Config.from_toml(tmp_path / ".slopcheck.toml")
+        Config.from_toml(tmp_path / ".sloprefine.toml")
 
 
 # --------------------------------------------------------------------- cli
@@ -143,12 +143,12 @@ def test_cli_missing_file_is_usage_error(tmp_path):
 # -------------------------------------------------------------- suppression
 
 def test_off_on_region_is_skipped():
-    text = "We delve here.\n<!-- slopcheck: off -->\nWe delve here too.\n<!-- slopcheck: on -->\nAnd delve again."
+    text = "We delve here.\n<!-- sloprefine: off -->\nWe delve here too.\n<!-- sloprefine: on -->\nAnd delve again."
     assert analyze("x.md", text, CFG).total == 2
 
 
 def test_off_without_on_runs_to_end_of_file():
-    text = "We delve here.\nslopcheck: off\nWe delve. We delve."
+    text = "We delve here.\nsloprefine: off\nWe delve. We delve."
     assert analyze("x.txt", text, CFG).total == 1
 
 
@@ -162,7 +162,7 @@ def test_markdown_code_blocks_are_exempt_by_default():
 
 
 def test_readme_passes_its_own_linter():
-    """Dogfood. Uses the repo's real .slopcheck.toml, so this also covers
+    """Dogfood. Uses the repo's real .sloprefine.toml, so this also covers
     config discovery and the allowlist."""
     root = Path(__file__).resolve().parents[1]
     readme = root / "README.md"
@@ -194,7 +194,7 @@ def test_opener_rule_ignores_ordinary_openers():
 
 # -------------------------------------------------------- v0.2: stylometry
 
-from slopcheck import stylometry
+from sloprefine import stylometry
 
 
 def test_mattr_is_length_robust_where_plain_ttr_is_not():
@@ -243,7 +243,7 @@ def test_stylometry_is_deterministic():
 
 # ------------------------------------------------------------- v0.2: voice
 
-from slopcheck import voice
+from sloprefine import voice
 
 
 def _corpus(n=5):
@@ -298,7 +298,7 @@ def test_interpret_is_silent_within_threshold():
 
 # ------------------------------------------------------------ v0.2: scorer
 
-from slopcheck import scorer as scorer_mod
+from sloprefine import scorer as scorer_mod
 
 
 class MockScorer:
@@ -378,7 +378,7 @@ def test_colon_check_ignores_decimal_points():
 
 # --------------------------------------------------------------- v0.3: agent
 
-from slopcheck import agent
+from sloprefine import agent
 
 
 def test_every_rule_carries_an_actionable_fix():
@@ -531,7 +531,7 @@ def test_cli_drift_missing_file(tmp_path):
 
 # -------------------------------------------------------------- v0.4: reader
 
-from slopcheck import reader
+from sloprefine import reader
 
 AUDIT_DEMO = CORPUS / "audit-demo"
 
@@ -604,7 +604,7 @@ def test_audience_flows_into_the_contract_and_the_agent_loop():
 
 # --------------------------------------------------------------- v0.4: audit
 
-from slopcheck import audit as audit_mod
+from sloprefine import audit as audit_mod
 
 
 def _demo():
@@ -680,7 +680,7 @@ def test_cli_audience_flag(tmp_path, capsys, monkeypatch):
 
 # ------------------------------------------------------- v0.5: cadence
 
-from slopcheck import cadence
+from sloprefine import cadence
 
 
 def test_choppy_control_is_choppy_and_clean_control_is_not():
@@ -837,7 +837,7 @@ def test_cli_min_sentence_flag(tmp_path, capsys, monkeypatch):
 
 # --------------------------------------------- v0.7: general parallelism
 
-from slopcheck import parallel
+from sloprefine import parallel
 
 PAR = Config(parallel_budget_per_1k=0.0)
 
@@ -946,7 +946,7 @@ def test_normalization_does_not_break_anaphora():
 
 # ------------------------------ v0.8: paragraph closers and the specifics floor
 
-from slopcheck import paragraph
+from sloprefine import paragraph
 
 CLOSER = Config(closer_budget_ratio=0.0)
 
@@ -1047,7 +1047,7 @@ def test_quoted_markers_are_not_vocabulary_hits():
 
 # ------------------------------------- v0.9: weighting and paragraph ranking
 
-from slopcheck import weighting
+from sloprefine import weighting
 
 
 def test_score_weights_severity():
@@ -1168,7 +1168,7 @@ def test_canonical_antithesis_is_caught_by_the_negation_rule():
 
 # ------------------------------------------- v1.1: a recorded negative result
 
-from slopcheck import align
+from sloprefine import align
 
 
 def test_local_alignment_does_not_separate_parallel_from_ordinary():
@@ -1211,7 +1211,7 @@ def test_sentence_splitting_is_linear():
 
 # ------------------------------------------ v1.2: syntactic template reuse
 
-from slopcheck import templates
+from sloprefine import templates
 
 
 def test_tagger_assigns_function_words_to_themselves():
@@ -1292,7 +1292,7 @@ def test_document_redundancy_does_not_subsume_local_shape_rules():
 
 # ------------------------------------------ v1.3: measured calibration
 
-from slopcheck import calibration as cal_mod
+from sloprefine import calibration as cal_mod
 
 
 def _audit_json():
@@ -1376,14 +1376,14 @@ def test_shipped_fiction_calibration_loads_and_is_scoped():
 def test_fully_suppressed_file_does_not_crash():
     """Regression: a file whose whole body sits inside a suppression region
     masks to whitespace, and statistics.mean raised on the empty counter."""
-    result = analyze("x.md", "<!-- slopcheck: off -->\nEverything here.\n", CFG)
+    result = analyze("x.md", "<!-- sloprefine: off -->\nEverything here.\n", CFG)
     assert result.total == 0
     assert result.style is not None
 
 
 # ----------------------------------------- v1.4: the punch index and profiles
 
-from slopcheck import punch as punch_mod
+from sloprefine import punch as punch_mod
 
 
 def test_punch_separates_the_talk_versions():
@@ -1502,7 +1502,7 @@ def test_doublet_budget_forgives_the_mildest_pair():
 
 # ------------------------------------------- v1.5: generic vs addressed you
 
-from slopcheck import person as person_mod
+from sloprefine import person as person_mod
 
 PERSON = Config(person_budget_per_1k=0.0)
 
@@ -1561,8 +1561,8 @@ def test_talk_profile_enables_the_person_rule():
 # --------------------------------------------------------- v1.5: MCP server
 
 mcp_server = pytest.importorskip(
-    "slopcheck.mcp_server",
-    reason='needs the optional extra: pip install "slopcheck[mcp]"')
+    "sloprefine.mcp_server",
+    reason='needs the optional extra: pip install "sloprefine[mcp]"')
 
 
 def test_mcp_tools_are_registered():
@@ -1628,7 +1628,7 @@ def test_mcp_tool_descriptions_state_the_limitation():
 
 def test_mcp_ignores_ambient_config():
     """An MCP server is launched from an arbitrary cwd by the agent host.
-    Picking up a .slopcheck.toml from there makes the same text score
+    Picking up a .sloprefine.toml from there makes the same text score
     differently for reasons the caller cannot see."""
     text = "One gene. " + (CORPUS / "clean_control.txt").read_text()
     # this repo's own config enables the sentence floor; the server must not
@@ -1641,17 +1641,44 @@ def test_version_is_declared_once():
     built wheel carried a version four releases behind the code."""
     import re
 
-    import slopcheck
+    import sloprefine
     root = Path(__file__).resolve().parents[1]
     declared = re.search(r'^version = "([^"]+)"',
                          (root / "pyproject.toml").read_text(), re.MULTILINE).group(1)
-    assert declared == slopcheck.__version__
+    assert declared == sloprefine.__version__
 
 
 def test_citation_file_matches_the_package():
     import re
     root = Path(__file__).resolve().parents[1]
     cff = (root / "CITATION.cff").read_text()
-    import slopcheck
-    assert re.search(r"^version: (.+)$", cff, re.MULTILINE).group(1) == slopcheck.__version__
+    import sloprefine
+    assert re.search(r"^version: (.+)$", cff, re.MULTILINE).group(1) == sloprefine.__version__
     assert "Rumenovski" in cff
+
+
+# ------------------------------------------- v1.6: rename compatibility
+
+def test_both_suppression_spellings_work():
+    """The marker is written into user documents. Renaming the tool must not
+    silently un-suppress a region somebody marked months ago."""
+    for token in ("slopcheck", "sloprefine"):
+        text = (f"We delve here.\n<!-- {token}: off -->\nWe delve here too.\n"
+                f"<!-- {token}: on -->\nAnd delve again.")
+        assert analyze("x.md", text, CFG).total == 2
+
+
+def test_both_config_filenames_and_table_names_work(tmp_path):
+    for filename, table in ((".sloprefine.toml", "sloprefine"),
+                            (".slopcheck.toml", "slopcheck")):
+        path = tmp_path / filename
+        path.write_text(f'[{table}]\nmin_sentence_words = 5\n')
+        assert Config.from_toml(path).min_sentence_words == 5
+        path.unlink()
+
+
+def test_new_config_name_wins_over_the_old(tmp_path, monkeypatch):
+    (tmp_path / ".sloprefine.toml").write_text('[sloprefine]\nmin_sentence_words = 5\n')
+    (tmp_path / ".slopcheck.toml").write_text('[slopcheck]\nmin_sentence_words = 9\n')
+    monkeypatch.chdir(tmp_path)
+    assert Config.load(tmp_path).min_sentence_words == 5

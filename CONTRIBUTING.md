@@ -9,12 +9,12 @@ every rule has one.
 
 Every rule also needs a source, meaning not a vibe but something someone put
 their name on: a study, a corpus analysis, or a written argument. Add the short key and full
-reference to the docstring at the top of `src/slopcheck/rules.py`, then declare
+reference to the docstring at the top of `src/sloprefine/rules.py`, then declare
 the rule with `_rule(...)` and give it a `why` that a writer can act on.
 
 Two more things are required.
 
-1. A positive test in `tests/test_slopcheck.py::test_rule_fires`.
+1. A positive test in `tests/test_sloprefine.py::test_rule_fires`.
 2. No new hits on `corpus/clean_control.txt`. That file is a regression fence.
    `test_clean_control_is_silent` asserts zero. If your rule fires there,
    either the rule is too broad or the fence was wrong; argue for one.

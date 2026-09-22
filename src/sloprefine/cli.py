@@ -1,4 +1,4 @@
-"""slopcheck command line interface."""
+"""sloprefine command line interface."""
 
 from __future__ import annotations
 
@@ -15,15 +15,15 @@ TEXT_SUFFIXES = (".txt", ".md", ".markdown", ".rst", ".text")
 
 EPILOG = """\
 examples:
-  slopcheck draft.md                        report
-  slopcheck draft.md --json                 machine-readable, with offsets
-  slopcheck voice build ~/writing -o me.json   baseline from your own prose
-  slopcheck draft.md --voice me.json        deviation from your own baseline
-  slopcheck draft.md --max-hits 0           exit 1 if anything fires
+  sloprefine draft.md                        report
+  sloprefine draft.md --json                 machine-readable, with offsets
+  sloprefine voice build ~/writing -o me.json   baseline from your own prose
+  sloprefine draft.md --voice me.json        deviation from your own baseline
+  sloprefine draft.md --max-hits 0           exit 1 if anything fires
 
-config: .slopcheck.toml, searched upward from cwd
+config: .sloprefine.toml, searched upward from cwd
 
-  [slopcheck]
+  [sloprefine]
   disable = ["colon", "hedge"]
   allow = ["landscape", "robust"]
   voice = "me.json"
@@ -52,7 +52,7 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
                         "parallelism budgets")
     p.add_argument("--calibration", metavar="FILE",
                    help="weight rules by measured enrichment instead of "
-                        "hand-assigned severity (see slopcheck audit --save)")
+                        "hand-assigned severity (see sloprefine audit --save)")
     p.add_argument("--voice", metavar="FILE",
                    help="voiceprint JSON; report stylometry as deviation "
                         "from your own baseline instead of raw values")
@@ -62,7 +62,7 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
                         "(directions measured post-2022; see reader.py)")
     p.add_argument("--lm", metavar="MODEL",
                    help="optional causal LM for perplexity structure "
-                        '(needs pip install "slopcheck[lm]")')
+                        '(needs pip install "sloprefine[lm]")')
     p.add_argument("--check-code-blocks", action="store_true",
                    help="do not exempt fenced code blocks in Markdown")
     p.add_argument("--min-sentence", type=int, metavar="N",
@@ -89,7 +89,7 @@ COMMANDS = ("check", "voice", "rules", "prompt", "drift", "audit")
 def build_parser() -> argparse.ArgumentParser:
     """Parser for `check`, which is also the default with no subcommand."""
     p = argparse.ArgumentParser(
-        prog="slopcheck",
+        prog="sloprefine",
         description="Lint prose against published AI-writing tells. "
                     "Subcommands: check (default), voice, rules.",
         epilog=EPILOG,
@@ -101,7 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def build_voice_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="slopcheck voice",
+        prog="sloprefine voice",
         description="Build or inspect a voiceprint: a baseline of your own "
                     "stylometry, so a draft is judged against you and not "
                     "against a population threshold.",
@@ -143,7 +143,7 @@ def _cmd_voice(args) -> int:
         try:
             vp = voice_mod.Voiceprint.load(args.path)
         except (OSError, ValueError) as exc:
-            print(f"slopcheck: {exc}", file=sys.stderr)
+            print(f"sloprefine: {exc}", file=sys.stderr)
             return 2
         print(vp.to_json())
         return 0
@@ -151,13 +151,13 @@ def _cmd_voice(args) -> int:
     try:
         files = _collect(args.paths)
     except FileNotFoundError as exc:
-        print(f"slopcheck: no such file or directory: {exc}", file=sys.stderr)
+        print(f"sloprefine: no such file or directory: {exc}", file=sys.stderr)
         return 2
     docs = [(str(f), f.read_text(encoding="utf-8", errors="replace")) for f in files]
     try:
         vp = voice_mod.build(docs)
     except ValueError as exc:
-        print(f"slopcheck: {exc}", file=sys.stderr)
+        print(f"sloprefine: {exc}", file=sys.stderr)
         return 2
     Path(args.output).write_text(vp.to_json(), encoding="utf-8")
     print(f"voiceprint written to {args.output}: {vp.n_docs} documents, "
@@ -168,7 +168,7 @@ def _cmd_voice(args) -> int:
 def _cmd_prompt(argv: list[str]) -> int:
     from .agent import style_contract
     p = argparse.ArgumentParser(
-        prog="slopcheck prompt",
+        prog="sloprefine prompt",
         description="Emit the rules as generation-time constraints. Put this "
                     "in front of the model instead of fixing the output.")
     p.add_argument("--disable", action="append", default=[], metavar="RULE")
@@ -180,7 +180,7 @@ def _cmd_prompt(argv: list[str]) -> int:
         try:
             voiceprint = voice_mod.Voiceprint.load(args.voice)
         except (OSError, ValueError) as exc:
-            print(f"slopcheck: voiceprint: {exc}", file=sys.stderr)
+            print(f"sloprefine: voiceprint: {exc}", file=sys.stderr)
             return 2
     print(style_contract(disabled=tuple(args.disable), voice=voiceprint,
                          audience=args.audience))
@@ -190,7 +190,7 @@ def _cmd_prompt(argv: list[str]) -> int:
 def _cmd_drift(argv: list[str]) -> int:
     from .agent import drift
     p = argparse.ArgumentParser(
-        prog="slopcheck drift",
+        prog="sloprefine drift",
         description="Compare two revisions. Tells you whether the edit "
                     "improved the draft or just traded one marker for another.")
     p.add_argument("before")
@@ -205,7 +205,7 @@ def _cmd_drift(argv: list[str]) -> int:
     args = p.parse_args(argv)
     for path in (args.before, args.after):
         if not Path(path).is_file():
-            print(f"slopcheck: no such file: {path}", file=sys.stderr)
+            print(f"sloprefine: no such file: {path}", file=sys.stderr)
             return 2
     config = Config.load()
     if args.profile:
@@ -225,7 +225,7 @@ def _cmd_drift(argv: list[str]) -> int:
 def _cmd_audit(argv: list[str]) -> int:
     from .audit import audit, load_corpus
     p = argparse.ArgumentParser(
-        prog="slopcheck audit",
+        prog="sloprefine audit",
         description="Measure whether each rule still discriminates between "
                     "machine and human text on YOUR corpora. Markers decay: "
                     "a fix published widely enough gets absorbed by the next "
@@ -245,7 +245,7 @@ def _cmd_audit(argv: list[str]) -> int:
         report = audit(load_corpus(args.ai), load_corpus(args.human),
                        Config.load(), args.audience)
     except (OSError, ValueError) as exc:
-        print(f"slopcheck: {exc}", file=sys.stderr)
+        print(f"sloprefine: {exc}", file=sys.stderr)
         return 2
     if args.save:
         from .calibration import Calibration
@@ -262,7 +262,7 @@ def _cmd_audit(argv: list[str]) -> int:
 
 def _cmd_check(args) -> int:
     if not args.paths:
-        print("slopcheck: no input files", file=sys.stderr)
+        print("sloprefine: no input files", file=sys.stderr)
         return 2
 
     calibration = None
@@ -271,13 +271,13 @@ def _cmd_check(args) -> int:
         try:
             calibration = Calibration.load(args.calibration)
         except (OSError, ValueError) as exc:
-            print(f"slopcheck: calibration: {exc}", file=sys.stderr)
+            print(f"sloprefine: calibration: {exc}", file=sys.stderr)
             return 2
 
     config = Config.load()
     unknown = set(args.disable) - set(RULES)
     if unknown:
-        print(f"slopcheck: unknown rule(s): {sorted(unknown)}", file=sys.stderr)
+        print(f"sloprefine: unknown rule(s): {sorted(unknown)}", file=sys.stderr)
         return 2
 
     voiceprint = None
@@ -286,7 +286,7 @@ def _cmd_check(args) -> int:
         try:
             voiceprint = voice_mod.Voiceprint.load(voice_path)
         except (OSError, ValueError) as exc:
-            print(f"slopcheck: voiceprint: {exc}", file=sys.stderr)
+            print(f"sloprefine: voiceprint: {exc}", file=sys.stderr)
             return 2
 
     allow = set(config.allow) | {w.lower() for w in args.allow}
@@ -341,7 +341,7 @@ def _cmd_check(args) -> int:
             continue
         f = Path(path)
         if not f.is_file():
-            print(f"slopcheck: no such file: {path}", file=sys.stderr)
+            print(f"sloprefine: no such file: {path}", file=sys.stderr)
             return 2
         results.append(analyze(str(f), f.read_text(encoding="utf-8"), config))
 
@@ -376,7 +376,7 @@ def _report_lm(results, model_name: str) -> None:
     try:
         scorer = TransformersScorer(model_name)
     except ImportError as exc:
-        print(f"slopcheck: {exc}", file=sys.stderr)
+        print(f"sloprefine: {exc}", file=sys.stderr)
         return
     for r in results:
         signal = measure(scorer, r.text)
@@ -420,7 +420,7 @@ def _main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if not args.paths:
         parser.print_usage(sys.stderr)
-        print("slopcheck: no input files", file=sys.stderr)
+        print("sloprefine: no input files", file=sys.stderr)
         return 2
     return _cmd_check(args)
 
