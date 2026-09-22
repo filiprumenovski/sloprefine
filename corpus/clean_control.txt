@@ -1,0 +1,7 @@
+The first time the assay came back flat I assumed I had pipetted it wrong, which is usually the right assumption at eleven at night. I ran it again the next morning with fresh buffer and got the same nothing.
+
+Two weeks of that. The control worked every time, which ruled out the reagents and left me with either the hypothesis or my hands, and I spent an embarrassing amount of that fortnight betting on my hands.
+
+What finally moved it was a suggestion from someone down the hall who does not work on this system at all and had therefore never absorbed the assumption everyone in our group had been carrying around since before I joined. She asked why we were measuring at thirty minutes. Nobody had a reason. The number came out of a protocol somebody adapted in 2011 from a paper about a different enzyme in a different organism.
+
+At five minutes the effect is enormous. I still do not know whether the thirty-minute number was wrong for the original system too, and I have not gone back to check, partly because I am afraid of what I will find and partly because it would not change what we do next.

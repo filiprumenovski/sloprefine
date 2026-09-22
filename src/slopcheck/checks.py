@@ -1,0 +1,144 @@
+"""Checks. Each yields Hit objects carrying offsets back into the source."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+from .rules import LEXICON, RULES
+from .text import WORD, Document
+
+FRAGMENT_MAX_WORDS = 7
+FRAGMENT_RUN = 3
+
+
+@dataclass(frozen=True)
+class Hit:
+    rule_id: str
+    start: int
+    end: int
+    text: str
+    note: str = ""
+
+    @property
+    def rule(self):
+        return RULES[self.rule_id]
+
+
+def _regex_check(doc: Document, rule_id: str) -> list[Hit]:
+    hits = []
+    for pattern in RULES[rule_id].patterns:
+        for m in re.finditer(pattern, doc.text, re.IGNORECASE):
+            hits.append(Hit(rule_id, m.start(), m.end(), m.group(0).strip()))
+    return hits
+
+
+def check_vocab(doc: Document, allow: frozenset[str] = frozenset()) -> list[Hit]:
+    hits = []
+    for m in WORD.finditer(doc.text):
+        token = m.group(0).lower().replace("\u2019", "'")
+        if token in LEXICON and token not in allow:
+            hits.append(Hit("vocab", m.start(), m.end(), m.group(0)))
+    return hits
+
+
+def check_tricolon(doc: Document) -> list[Hit]:
+    """Two shapes: 'a, b, and c' of bare items, and anaphora repeated 3x."""
+    hits = []
+    for m in re.finditer(
+        r"\b([A-Za-z][\w-]*), ([A-Za-z][\w-]*),? and ([A-Za-z][\w-]*)\b", doc.text
+    ):
+        if len(WORD.findall(m.group(0))) <= 6:
+            hits.append(Hit("tricolon", m.start(), m.end(), m.group(0), "list of three"))
+    for m in re.finditer(
+        r"\b(\w+)\s+[\w\s-]{1,28}[,.;]\s+\1\s+[\w\s-]{1,28}[,.;]\s+\1\s+[\w\s-]{1,28}[.,;]",
+        doc.text,
+        re.IGNORECASE,
+    ):
+        hits.append(
+            Hit("tricolon", m.start(), m.end(),
+                re.sub(r"\s+", " ", m.group(0)), "anaphora x3")
+        )
+    return _dedupe(hits)
+
+
+def check_fragments(doc: Document) -> list[Hit]:
+    """Runs of very short sentences. Spans paragraph breaks on purpose: a
+    listener has no paragraphs, so the cadence carries across them."""
+    hits = []
+    run: list = []
+    for span in doc.sentences:
+        if len(span) <= FRAGMENT_MAX_WORDS:
+            run.append(span)
+        else:
+            hits += _emit_run(run)
+            run = []
+    hits += _emit_run(run)
+    return hits
+
+
+def _emit_run(run: list) -> list[Hit]:
+    if len(run) < FRAGMENT_RUN:
+        return []
+    return [Hit("fragments", run[0].start, run[-1].end,
+                " / ".join(s.text for s in run), f"{len(run)} in a row")]
+
+
+def check_colon(doc: Document) -> list[Hit]:
+    hits = []
+    for m in re.finditer(r"[a-z]{3,}:\s+[A-Za-z][^.\n]{0,70}\.", doc.text):
+        hits.append(Hit("colon", m.start(), m.end(), m.group(0)))
+    return hits
+
+
+def check_question(doc: Document) -> list[Hit]:
+    hits = []
+    for para in doc.paragraphs:
+        first = next((s for s in doc.sentences if s.start >= para.start), None)
+        if first is not None and first.start < para.end and first.text.endswith("?"):
+            hits.append(Hit("question", first.start, first.end, first.text))
+    return hits
+
+
+def check_emoji(doc: Document) -> list[Hit]:
+    pattern = re.compile(
+        "[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]"
+    )
+    return [Hit("emoji", m.start(), m.end(), m.group(0))
+            for m in pattern.finditer(doc.text)]
+
+
+def _dedupe(hits: list[Hit]) -> list[Hit]:
+    seen, out = set(), []
+    for h in sorted(hits, key=lambda x: (x.start, -x.end)):
+        if any(h.start >= s and h.end <= e for s, e in seen):
+            continue
+        seen.add((h.start, h.end))
+        out.append(h)
+    return out
+
+
+CHECKS = {
+    "vocab": check_vocab,
+    "emdash": lambda d: _regex_check(d, "emdash"),
+    "negation": lambda d: _regex_check(d, "negation"),
+    "tricolon": check_tricolon,
+    "fragments": check_fragments,
+    "transitions": lambda d: _regex_check(d, "transitions"),
+    "narrator": lambda d: _regex_check(d, "narrator"),
+    "participial": lambda d: _regex_check(d, "participial"),
+    "colon": check_colon,
+    "question": check_question,
+    "recap": lambda d: _regex_check(d, "recap"),
+    "hedge": lambda d: _regex_check(d, "hedge"),
+    "emoji": check_emoji,
+}
+
+
+def run_checks(doc: Document, disabled=(), allow=frozenset()) -> list[Hit]:
+    hits: list[Hit] = []
+    for rule_id, fn in CHECKS.items():
+        if rule_id in disabled:
+            continue
+        hits += check_vocab(doc, allow) if rule_id == "vocab" else fn(doc)
+    return sorted(hits, key=lambda h: h.start)

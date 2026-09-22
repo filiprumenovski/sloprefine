@@ -1,0 +1,165 @@
+"""Config, analysis entry point, and output rendering."""
+
+from __future__ import annotations
+
+import json
+import tomllib
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from . import metrics as metrics_mod
+from .checks import Hit, run_checks
+from .rules import RULES
+from .text import Document, markdown_furniture, mask, suppressed_ranges
+
+CONFIG_NAMES = (".slopcheck.toml", "slopcheck.toml")
+
+
+@dataclass
+class Config:
+    disabled: tuple[str, ...] = ()
+    allow: frozenset[str] = frozenset()
+    max_hits: int | None = None
+    max_per_1k: float | None = None
+    skip_code_blocks: bool = True
+
+    @classmethod
+    def load(cls, start: Path | None = None) -> Config:
+        start = (start or Path.cwd()).resolve()
+        for directory in (start, *start.parents):
+            for name in CONFIG_NAMES:
+                candidate = directory / name
+                if candidate.is_file():
+                    return cls.from_toml(candidate)
+        return cls()
+
+    @classmethod
+    def from_toml(cls, path: Path) -> Config:
+        data = tomllib.loads(path.read_text()).get("slopcheck", {})
+        unknown = set(data.get("disable", [])) - set(RULES)
+        if unknown:
+            raise ValueError(f"{path}: unknown rule(s): {sorted(unknown)}")
+        return cls(
+            disabled=tuple(data.get("disable", [])),
+            allow=frozenset(w.lower() for w in data.get("allow", [])),
+            max_hits=data.get("max_hits"),
+            max_per_1k=data.get("max_per_1k"),
+            skip_code_blocks=data.get("skip_code_blocks", True),
+        )
+
+
+@dataclass
+class Result:
+    path: str
+    text: str = field(repr=False, default="")
+    hits: list[Hit] = field(default_factory=list)
+    metrics: metrics_mod.Metrics | None = None
+
+    @property
+    def total(self) -> int:
+        return len(self.hits)
+
+    @property
+    def per_1k(self) -> float:
+        w = self.metrics.words if self.metrics else 0
+        return round(self.total / w * 1000, 2) if w else 0.0
+
+    def counts(self) -> dict[str, int]:
+        out = {rid: 0 for rid in RULES}
+        for h in self.hits:
+            out[h.rule_id] += 1
+        return out
+
+
+def analyze(path: str, text: str, config: Config) -> Result:
+    """Suppressed regions are masked before tokenization, not filtered after.
+    Filtering afterwards leaks: a multi-sentence hit can start outside a
+    suppressed region and reach into it."""
+    is_md = path.endswith((".md", ".markdown"))
+    regions = suppressed_ranges(text, skip_code=config.skip_code_blocks and is_md)
+    if is_md:
+        regions += markdown_furniture(text)
+    doc = Document(mask(text, regions), path)
+    hits = run_checks(doc, disabled=config.disabled, allow=config.allow)
+    return Result(path=path, text=text, hits=hits, metrics=metrics_mod.compute(doc))
+
+
+# ------------------------------------------------------------------ render
+
+BOLD, DIM, RED, YELLOW, GREEN, RESET = (
+    "\033[1m", "\033[2m", "\033[31m", "\033[33m", "\033[32m", "\033[0m",
+)
+SEV_COLOR = {"high": RED, "medium": YELLOW, "low": DIM}
+
+
+def render_text(result: Result, verbose: bool = True, color: bool = True) -> str:
+    def c(code: str, s: str) -> str:
+        return f"{code}{s}{RESET}" if color else s
+
+    doc_lines = result.text.splitlines()
+    out = [c(BOLD, result.path) + f"  ({result.metrics.words} words)"]
+    counts = result.counts()
+
+    for rule_id, rule in RULES.items():
+        n = counts[rule_id]
+        mark = "ok " if n == 0 else c(SEV_COLOR[rule.severity], "HIT")
+        out.append(
+            f"  {mark} {rule.title:<34} {n:>3}  {c(DIM, rule.citation)}"
+        )
+        if n and verbose:
+            shown = [h for h in result.hits if h.rule_id == rule_id][:6]
+            for h in shown:
+                line = result.text.count("\n", 0, h.start) + 1
+                snippet = h.text if len(h.text) <= 76 else h.text[:73] + "..."
+                note = f" {c(DIM, '(' + h.note + ')')}" if h.note else ""
+                out.append(f"       {c(DIM, f'L{line}')}  {snippet}{note}")
+            if n > len(shown):
+                out.append(c(DIM, f"       ... {n - len(shown)} more"))
+
+    m = result.metrics
+    out.append("  " + "-" * 60)
+    out.append(
+        f"  sentences={m.sentences}  mean={m.mean_len}w  sd={m.stdev_len}  "
+        f"CV={m.cv}  flat-run={m.longest_flat_run}"
+    )
+    out.append(
+        f"  short<=7w {m.pct_short:.0%}   long>=25w {m.pct_long:.0%}   "
+        f"footprint={m.footprint} ({m.footprint_per_1k}/1k words)"
+    )
+    for w in m.warnings():
+        out.append("  " + c(YELLOW, "warn ") + w)
+    total_color = GREEN if result.total == 0 else RED
+    out.append(
+        "  " + c(BOLD, "total ") + c(total_color, str(result.total))
+        + f"  ({result.per_1k} per 1k words)"
+    )
+    _ = doc_lines
+    return "\n".join(out)
+
+
+def render_json(results: list[Result]) -> str:
+    payload = [
+        {
+            "path": r.path,
+            "total": r.total,
+            "per_1k": r.per_1k,
+            "counts": r.counts(),
+            "metrics": r.metrics.as_dict(),
+            "warnings": r.metrics.warnings(),
+            "hits": [
+                {
+                    "rule": h.rule_id,
+                    "severity": RULES[h.rule_id].severity,
+                    "citation": RULES[h.rule_id].citation,
+                    "line": r.text.count("\n", 0, h.start) + 1,
+                    "start": h.start,
+                    "end": h.end,
+                    "text": h.text,
+                    "note": h.note,
+                }
+                for h in r.hits
+            ],
+        }
+        for r in results
+    ]
+    return json.dumps(payload, indent=2)
