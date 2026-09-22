@@ -507,3 +507,152 @@ def test_cli_drift_missing_file(tmp_path):
     a = tmp_path / "a.txt"
     a.write_text("text")
     assert main(["drift", str(a), str(tmp_path / "nope.txt")]) == 2
+
+
+# -------------------------------------------------------------- v0.4: reader
+
+from slopcheck import reader
+
+AUDIT_DEMO = CORPUS / "audit-demo"
+
+
+def test_reader_rejects_unknown_audience():
+    with pytest.raises(ValueError, match="audience"):
+        reader.compute(Document("Some text here."), "nobody")
+
+
+def test_sentiment_proxy_abstains_when_evidence_is_thin():
+    """Technical prose can run hundreds of words with no valence token. A
+    variance computed from three matches is a number with nothing under it."""
+    technical = Document(
+        "The classifier was trained on tile composition with no serine term. "
+        "Every prediction is made on a protein the model has never seen. "
+        "The acceptor position survives about a quarter of the time. " * 3
+    )
+    s = reader.compute(technical, "expert")
+    assert s.mean_sentiment is None and s.sentiment_variance is None
+    assert any("unavailable" in n for n in reader.notes(s))
+
+
+def test_sentiment_proxy_reports_when_evidence_is_present():
+    text = ("It was wonderful and bright and the joy was great. " * 4
+            + "Then it was terrible, dark, bitter, lonely and full of dread. " * 4)
+    s = reader.compute(Document(text), "expert")
+    assert s.valence_tokens >= reader.MIN_VALENCE_TOKENS
+    assert s.mean_sentiment is not None
+
+
+def test_uniform_positivity_is_flagged_for_expert_readers():
+    """[MGF25] Table 3: machine text ran markedly more positive in both
+    expert-annotated corpora."""
+    sunny = "The result was wonderful and bright, a great joy, a perfect success. " * 6
+    s = reader.compute(Document(sunny), "expert")
+    assert s.mean_sentiment > 0.35
+    assert any("more positive" in n for n in reader.notes(s))
+
+
+def test_device_concentration_distinguishes_variety_from_repetition():
+    """The rule-of-three problem: the device is not the issue, monotony is."""
+    one_device = "Fast, cheap, good. Hot, cold, warm. Up, down, sideways. " * 3
+    varied = ('She moved like a shadow. Do you see it? "No," he said. '
+              "If you wait, then it comes. (The room was cold.) ")
+    assert (reader.compute(Document(one_device), "expert").device_concentration
+            > reader.compute(Document(varied), "expert").device_concentration)
+
+
+def test_adjacent_overlap_detects_restatement():
+    repetitive = ("The buffer was cold. The cold buffer sat there. "
+                  "The buffer, cold, stayed. ") * 3
+    varied = ("The buffer was cold. Nobody had checked the timer. "
+              "She asked why we measured at thirty minutes. ") * 3
+    assert (reader.compute(Document(repetitive), "expert").adjacent_overlap
+            > reader.compute(Document(varied), "expert").adjacent_overlap)
+
+
+def test_audiences_produce_different_guidance():
+    """[MGF25]: the two reader clusters weight different features, so a tool
+    that emits one universal target is asserting something the data denies."""
+    assert reader.contract_lines("expert") != reader.contract_lines("general")
+    flat = " ".join(reader.contract_lines("expert"))
+    assert "local coherence" in flat
+
+
+def test_audience_flows_into_the_contract_and_the_agent_loop():
+    assert "expert readers" in agent.style_contract(audience="expert")
+    assert "expert readers" not in agent.style_contract()
+
+
+# --------------------------------------------------------------- v0.4: audit
+
+from slopcheck import audit as audit_mod
+
+
+def _demo():
+    return (audit_mod.load_corpus(AUDIT_DEMO / "machine"),
+            audit_mod.load_corpus(AUDIT_DEMO / "human"))
+
+
+def test_audit_refuses_tiny_corpora():
+    ai, human = _demo()
+    with pytest.raises(ValueError, match="at least"):
+        audit_mod.audit(ai[:2], human, CFG)
+
+
+def test_audit_scores_live_markers_on_the_demo_pair():
+    report = audit_mod.audit(*_demo(), CFG)
+    by_rule = {r.rule: r for r in report.rules}
+    assert by_rule["vocab"].verdict == "machine-only"
+    assert by_rule["vocab"].ai_per_1k > by_rule["vocab"].human_per_1k
+
+
+def test_audit_calls_a_marker_dead_when_both_sides_use_it():
+    """The decay case this exists for: once a pattern is equally common in
+    both corpora it has no discriminative power left, whatever its history."""
+    shared = [(f"{i}.txt", "We delve into it. " * 20) for i in range(6)]
+    report = audit_mod.audit(shared, shared, CFG)
+    assert {r.rule: r for r in report.rules}["vocab"].verdict == "dead"
+
+
+def test_audit_detects_inversion():
+    """Enrichment below 1 means the marker now favours the human corpus,
+    which is what a widely adopted fix looks like from the other side."""
+    ai = [(f"a{i}.txt", "Plain sentences with nothing notable in them. " * 10)
+          for i in range(6)]
+    human = [(f"h{i}.txt", "We delve into the intricate realm. " * 10)
+             for i in range(6)]
+    report = audit_mod.audit(ai, human, CFG)
+    assert {r.rule: r for r in report.rules}["vocab"].verdict == "inverted"
+
+
+def test_audit_reports_feature_effect_sizes():
+    report = audit_mod.audit(*_demo(), CFG)
+    assert report.features
+    assert all(-20 < f.cohens_d < 20 for f in report.features)
+
+
+def test_cohens_d_is_zero_without_spread():
+    assert audit_mod._cohens_d([1.0] * 5, [1.0] * 5) == 0.0
+
+
+def test_cli_audit(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert main(["audit", "--ai", str(AUDIT_DEMO / "machine"),
+                 "--human", str(AUDIT_DEMO / "human")]) == 0
+    assert "enrichment" in capsys.readouterr().out
+
+
+def test_cli_audit_rejects_small_corpus(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    small = tmp_path / "small"
+    small.mkdir()
+    (small / "a.txt").write_text("one document")
+    assert main(["audit", "--ai", str(small),
+                 "--human", str(AUDIT_DEMO / "human")]) == 2
+
+
+def test_cli_audience_flag(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    f = tmp_path / "a.txt"
+    f.write_text("The result was wonderful and bright, a great joy. " * 8)
+    main([str(f), "--audience", "expert", "--no-color"])
+    assert "more positive" in capsys.readouterr().out

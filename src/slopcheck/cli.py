@@ -49,6 +49,9 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
                    help="voiceprint JSON; report stylometry as deviation "
                         "from your own baseline instead of raw values")
     p.add_argument("--z-threshold", type=float, default=2.0, metavar="X")
+    p.add_argument("--audience", choices=("expert", "general"),
+                   help="apply reader-preference signals for this audience "
+                        "(directions measured post-2022; see reader.py)")
     p.add_argument("--lm", metavar="MODEL",
                    help="optional causal LM for perplexity structure "
                         '(needs pip install "slopcheck[lm]")')
@@ -58,7 +61,7 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--max-per-1k", type=float, metavar="X")
 
 
-COMMANDS = ("check", "voice", "rules", "prompt", "drift")
+COMMANDS = ("check", "voice", "rules", "prompt", "drift", "audit")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -148,6 +151,7 @@ def _cmd_prompt(argv: list[str]) -> int:
                     "in front of the model instead of fixing the output.")
     p.add_argument("--disable", action="append", default=[], metavar="RULE")
     p.add_argument("--voice", metavar="FILE")
+    p.add_argument("--audience", choices=("expert", "general"))
     args = p.parse_args(argv)
     voiceprint = None
     if args.voice:
@@ -156,7 +160,8 @@ def _cmd_prompt(argv: list[str]) -> int:
         except (OSError, ValueError) as exc:
             print(f"slopcheck: voiceprint: {exc}", file=sys.stderr)
             return 2
-    print(style_contract(disabled=tuple(args.disable), voice=voiceprint))
+    print(style_contract(disabled=tuple(args.disable), voice=voiceprint,
+                         audience=args.audience))
     return 0
 
 
@@ -186,6 +191,35 @@ def _cmd_drift(argv: list[str]) -> int:
     else:
         print(d.render())
     return 1 if d.verdict in {v.strip() for v in args.fail_on.split(",")} else 0
+
+
+def _cmd_audit(argv: list[str]) -> int:
+    from .audit import audit, load_corpus
+    p = argparse.ArgumentParser(
+        prog="slopcheck audit",
+        description="Measure whether each rule still discriminates between "
+                    "machine and human text on YOUR corpora. Markers decay: "
+                    "a fix published widely enough gets absorbed by the next "
+                    "model generation, and then it is no longer a marker.")
+    p.add_argument("--ai", required=True, metavar="DIR",
+                   help="directory of machine-written text")
+    p.add_argument("--human", required=True, metavar="DIR",
+                   help="directory of human-written text")
+    p.add_argument("--audience", choices=("expert", "general"), default="expert")
+    p.add_argument("--json", action="store_true")
+    args = p.parse_args(argv)
+    try:
+        report = audit(load_corpus(args.ai), load_corpus(args.human),
+                       Config.load(), args.audience)
+    except (OSError, ValueError) as exc:
+        print(f"slopcheck: {exc}", file=sys.stderr)
+        return 2
+    if args.json:
+        import json
+        print(json.dumps(report.as_dict(), indent=2))
+    else:
+        print(report.render())
+    return 0
 
 
 def _cmd_check(args) -> int:
@@ -220,6 +254,7 @@ def _cmd_check(args) -> int:
         skip_code_blocks=not args.check_code_blocks and config.skip_code_blocks,
         voice=voiceprint,
         z_threshold=args.z_threshold,
+        audience=args.audience or config.audience,
     )
 
     results = []
@@ -297,6 +332,8 @@ def _main(argv: list[str] | None = None) -> int:
         return _cmd_prompt(argv)
     if command == "drift":
         return _cmd_drift(argv)
+    if command == "audit":
+        return _cmd_audit(argv)
     if command == "voice":
         return _cmd_voice(build_voice_parser().parse_args(argv))
 

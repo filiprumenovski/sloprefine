@@ -27,6 +27,24 @@ nobody. Prefer a rule that misses half the instances over one that fires on
 ordinary writing. If a word is load-bearing in some field, add it to
 `COMMONLY_LEGITIMATE` rather than dropping it from the lexicon.
 
+## Adding a reader-preference signal
+
+The highest bar in the repository. A positive signal needs a direction
+measured after 2022 by comparing human and machine text against real reader
+judgments. "Good writers do this" is not admissible, and neither is a
+pre-2022 prescription, because prescription is what put the pattern in the
+training data in the first place. That is how the rule of three became a
+detection marker.
+
+Cite the corpus, the reader population, and the effect direction. Say which
+audience it applies to; `reader.py` takes one because the evidence says the
+two reader clusters want different things. If you approximate a feature the
+source measured with a model, name the proxy in the code and in the output.
+
+Then run `slopcheck audit` against a real corpus pair and report the
+enrichment. A signal that does not separate machine text from human text on
+current models is not a signal yet.
+
 ## Adding a stylometric feature
 
 Different bar. Features go in `stylometry.py` and must be computable with no

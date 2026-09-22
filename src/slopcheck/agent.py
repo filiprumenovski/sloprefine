@@ -90,7 +90,8 @@ def review(path: str, text: str, config: Config | None = None) -> Review:
         )
         for hit in result.hits
     ]
-    notes = list(result.metrics.warnings()) + list(result.voice_notes)
+    notes = (list(result.metrics.warnings()) + list(result.reader_notes)
+             + list(result.voice_notes))
     limit = config.max_hits if config.max_hits is not None else 0
     return Review(
         path=path,
@@ -105,6 +106,7 @@ def review(path: str, text: str, config: Config | None = None) -> Review:
 def style_contract(
     disabled: tuple[str, ...] = (),
     voice: object | None = None,
+    audience: str | None = None,
 ) -> str:
     """Constraints to place in front of generation.
 
@@ -139,6 +141,10 @@ def style_contract(
             "number, a name, or a date beats a category."
         ),
     ]
+    if audience:
+        from .reader import contract_lines
+        lines += ["", f"Written for {audience} readers:"]
+        lines += [f"- {line}" for line in contract_lines(audience)]
     if voice is not None and getattr(voice, "center", None):
         c = voice.center
         lines += [

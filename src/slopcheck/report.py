@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import metrics as metrics_mod
+from . import reader as reader_mod
 from . import stylometry as stylometry_mod
 from . import voice as voice_mod
 from .checks import Hit, run_checks
@@ -27,6 +28,7 @@ class Config:
     voice: voice_mod.Voiceprint | None = None
     voice_path: str | None = None
     z_threshold: float = 2.0
+    audience: str | None = None  # "expert" | "general"; None disables
 
     @classmethod
     def load(cls, start: Path | None = None) -> Config:
@@ -51,6 +53,7 @@ class Config:
             max_per_1k=data.get("max_per_1k"),
             skip_code_blocks=data.get("skip_code_blocks", True),
             voice_path=data.get("voice"),
+            audience=data.get("audience"),
         )
 
 
@@ -61,6 +64,8 @@ class Result:
     hits: list[Hit] = field(default_factory=list)
     metrics: metrics_mod.Metrics | None = None
     style: stylometry_mod.Stylometry | None = None
+    reader: reader_mod.ReaderSignals | None = None
+    reader_notes: list[str] = field(default_factory=list)
     deviations: dict[str, float] = field(default_factory=dict)
     voice_notes: list[str] = field(default_factory=list)
 
@@ -95,9 +100,14 @@ def analyze(path: str, text: str, config: Config) -> Result:
     if config.voice is not None:
         deviations = config.voice.compare(style)
         notes = voice_mod.interpret(deviations, threshold=config.z_threshold)
+    signals, reader_notes = None, []
+    if config.audience:
+        signals = reader_mod.compute(doc, config.audience)
+        reader_notes = reader_mod.notes(signals)
     return Result(
         path=path, text=text, hits=hits, metrics=metrics_mod.compute(doc),
         style=style, deviations=deviations, voice_notes=notes,
+        reader=signals, reader_notes=reader_notes,
     )
 
 
@@ -169,6 +179,8 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
             out.append("  " + c(DIM, "stylometry (no voiceprint: values only, no judgement)"))
             for label, key in _STYLE_ROWS:
                 out.append(f"    {label:<22} {getattr(s, key):>9}")
+    for note in result.reader_notes:
+        out.append("  " + c(YELLOW, "read  ") + note)
     for note in result.voice_notes:
         out.append("  " + c(YELLOW, "voice ") + note)
     for w in m.warnings():
@@ -192,6 +204,8 @@ def render_json(results: list[Result]) -> str:
             "metrics": r.metrics.as_dict(),
             "stylometry": r.style.as_dict() if r.style else {},
             "deviations": r.deviations,
+            "reader": r.reader.as_dict() if r.reader else {},
+            "reader_notes": r.reader_notes,
             "voice_notes": r.voice_notes,
             "warnings": r.metrics.warnings(),
             "hits": [

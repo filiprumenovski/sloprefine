@@ -52,16 +52,20 @@ Output is grouped by rule so the fix instruction is emitted once rather than
 once per hit: 1,543 characters for the agent format against 2,842 for the
 human report and 7,636 for JSON, on the same document.
 
-Three layers under the hood:
+Four layers under the hood:
 
 1. **Rules.** Sixteen lexical and structural checks, each citing its source,
    each carrying an imperative fix a model can act on.
 2. **Stylometry.** Model-free features from the detection literature,
    reported with no thresholds attached.
-3. **Voiceprints.** A baseline built from your own writing. In a generation
+3. **Reader signals.** Post-2022 evidence about what readers actually
+   preferred, keyed to an audience, because the evidence says the two reader
+   populations want opposite things.
+4. **Voiceprints.** A baseline built from your own writing. In a generation
    loop this is a *target*, not a defense: `slopcheck prompt --voice me.json`
    puts your measured sentence length, lexical density and contraction rate
-   in front of the model before it writes a word.
+   in front of the model before it writes a word. This is the layer with the
+   strongest evidence behind it, and the reason is below.
 
 ## Install
 
@@ -140,6 +144,101 @@ Two implementation departures from the paper, both deliberate:
   no population cutoffs at all. Without a voiceprint it prints values and says
   nothing about them.
 
+### Reader signals: what people actually want, measured after 2022
+
+Removing markers is only half a writing tool. The other half cannot come from
+a rhetoric textbook, because of a contamination problem.
+
+Any device widely *prescribed* before 2022 sits in the advice corpus,
+therefore in the training data, therefore in the model's default register. The
+rule of three is the clearest case: genuinely effective, taught for a century,
+and now so overproduced that it appears on detection-marker lists. Prescription
+made it a target and optimization made it a tell. Parallelism, alliteration,
+readability-formula optimization and "vary your sentence length" are all on the
+same path.
+
+So a positive signal gets in here only if its direction was measured after
+2022 against real reader judgments. The source is Marco, Gonzalo and Fresno
+(arXiv:2506.03310), who modeled 101 annotators over 1,471 stories with 17
+reference-less features and per-reader preference models.
+
+Their first finding is that there is no single target. Reader preferences
+cluster into two profiles. Lay readers weight readability, sentence length,
+syntactic depth and lexical diversity, and they frequently prefer machine
+text. Experts weight sentiment dynamics, sentence rhythm, rhetorical variety
+and thematic entropy, and they do not. A tool that emits one universal
+definition of good writing is asserting something the data denies, so
+`--audience expert|general` is required to turn this layer on.
+
+Their Table 3 gives per-corpus means for human and machine text, and four
+directions replicate across both expert-annotated corpora:
+
+<!-- slopcheck: off -->
+
+| feature | human | machine | implemented as |
+|---|---|---|---|
+| mean sentiment | -0.12, +0.05 | +0.74, +0.78 | lexicon proxy, abstains under 15 valence tokens |
+| sentiment variance | 0.91, 0.91 | 0.43, 0.36 | same proxy, chunked |
+| sentence rhythm | 11.0, 24.5 | 10.3, 16.9 | stdev of sentence length |
+| local coherence | 0.31, 0.32 | 0.41, 0.48 | content-word overlap between adjacent sentences |
+
+<!-- slopcheck: on -->
+
+The sentiment pair is the largest and the least comfortable: machine text is
+relentlessly positive and flat, and expert-preferred human text varies about
+twice as much. Sentence rhythm and local coherence say the same thing
+structurally. Machine prose is smoother between adjacent sentences than the
+prose experts prefer, which means the usual advice to improve flow is pointed
+in the wrong direction for that audience.
+
+Three of their features need models this package will not require: local
+coherence via sentence embeddings, thematic entropy via LDA, and rhetorical
+variety via a large model. Each is approximated with a lexical proxy and each
+proxy is labeled as one in the output. The sentiment proxy abstains rather
+than reporting a number when too few valence tokens match, which is the normal
+case for technical prose.
+
+This layer also resolves the rule-of-three problem rather than banning it.
+Expert readers weighted rhetorical *variety*. The tool therefore measures
+`device_variety` alongside `device_concentration`, and complains when one
+device carries most of the work. The failure is not three items, it is three items every time.
+
+### The audit: markers decay, so measure the decay
+
+```bash
+slopcheck audit --ai out/gpt-drafts --human ~/writing/mine
+```
+
+Everything above is dated. The fixes in this repository are being published,
+absorbed, and trained on right now, and some of them will be markers of
+machine text within a year. A tool built on a fixed list decays silently.
+
+`audit` makes the decay measurable. Point it at a corpus of machine text and a
+corpus of human text and it reports, per rule, how much more often the pattern
+appears in the machine half:
+
+```
+rules (enrichment = machine rate / human rate)
+  vocab         ai 112.06  human   0.00  x  inf  machine-only
+  transitions   ai  22.84  human   0.00  x  inf  machine-only
+  emdash        ai   0.00  human   0.00  x 1.00  unobserved
+
+features (Cohen's d, machine vs human)
+  topic_spread           ai    0.000  human    0.833  d= -3.16 (machine lower)
+  mean_sentence_len      ai    8.117  human   20.833  d= -2.38 (machine lower)
+```
+
+Enrichment far above 1 means the marker still works. Around 1 means it is dead
+and carries no information, whether because models stopped or writers started.
+Below 1 means it has inverted, which is what a widely adopted fix looks like
+from the other side. Feature effects use Cohen's d so they are directly
+comparable to the numbers in the papers.
+
+`corpus/audit-demo/` ships a runnable pair, and its README says plainly that
+both sides were written by hand and none of its numbers are evidence. Replace
+it with output from the models you actually use and your own writing from
+before you used them.
+
 ### Voiceprints
 
 ```bash
@@ -158,6 +257,17 @@ accused of things.
 
 Requires at least 3 documents of 150+ words. It refuses below that, because a
 baseline from two paragraphs describes those two paragraphs.
+
+This layer has the strongest evidence of anything here. Chakrabarty, Ginsburg
+and Dhillon (arXiv:2510.13939) collected 10,920 pairwise judgments comparing
+MFA-trained writers against frontier models. With in-context prompting, MFA
+readers disfavored the machine on quality at OR=0.13 while general readers
+favored it at OR=1.82. Fine-tuning on a single author's complete works
+reversed it: MFA stylistic fidelity went to OR=8.16.
+
+Matching one specific author beats generic quality, by a wide margin, for the
+readers who are hardest to please. That is an argument for building the target
+out of your own corpus rather than out of anyone's rules, including these.
 
 ### Optional: perplexity structure
 
