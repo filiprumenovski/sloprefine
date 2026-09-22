@@ -121,6 +121,8 @@ CHECKS = {
     "emdash": lambda d: _regex_check(d, "emdash"),
     "negation": lambda d: _regex_check(d, "negation"),
     "litotes": lambda d: _regex_check(d, "litotes"),
+    "copula": lambda d: _regex_check(d, "copula"),
+    "assoc": lambda d: _regex_check(d, "assoc"),
     "fragments": check_fragments,
     "transitions": lambda d: _regex_check(d, "transitions"),
     "narrator": lambda d: _regex_check(d, "narrator"),

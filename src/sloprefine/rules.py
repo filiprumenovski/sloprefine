@@ -101,6 +101,10 @@ _rule(
         r"\bnot\s+(?:about|because of)\s+\w+[^.]{0,40},\s*(?:it'?s|but)\b",
         r"\bthis (?:is|was) not an?\b",
         r"\bit'?s not (?:a|an|the)\b[^.]{0,40}\bit'?s (?:a|an|the)\b",
+        # "This dispersal is not dissolution. Rather, it constitutes..."
+        # The corrective lands in the NEXT sentence, so the comma forms
+        # above never see it. [WP]
+        r"\bnot\s+[^.]{0,60}\.\s+Rather,\s",
         # "This isn't a treatment, it's a language."
         (
             r"\b(?:isn'?t|aren'?t|wasn'?t|weren'?t)\s+(?:a|an|the)\b[^.]{0,50},"
@@ -264,6 +268,41 @@ _rule(
         "satisfied by cutting words.",
     fix="Name the thing. A number, a date, a proper noun or a quoted term. "
         "Do not invent one: an unchecked figure is worse than a vague phrase.",
+)
+
+_rule(
+    id="copula",
+    title="copula avoidance",
+    citation="[WP]",
+    severity="medium",
+    why="'Serves as', 'stands as', 'marks' where 'is' was the word. The "
+        "catalogue records a measurable decline in plain is/are "
+        "constructions, most visible in machine copyedits.",
+    fix="Use the verb 'to be'. 'serves as the archive' is 'is the archive'.",
+    patterns=(
+        r"\b(?:serves|stands|functions|acts)\s+as\s+(?:a|an|the)\b",
+        (
+            r"\b(?:marks|represents|constitutes|embodies|exemplifies)"
+            r"\s+(?:a|an|the)\b"
+        ),
+        r"\bemerged\s+as\s+(?:a|an|the)\b",
+    ),
+)
+
+_rule(
+    id="assoc",
+    title="vague association",
+    citation="[WP]",
+    severity="medium",
+    why="'Associated with', 'linked to', 'in connection with' standing in "
+        "for the specific relationship. The catalogued example is 'identified "
+        "as being associated with leadership' where the source said 'was CEO'.",
+    fix="Name the relationship. If the source does not support a specific "
+        "one, say what the source actually says.",
+    patterns=(
+        r"\b(?:associated|connected|linked)\s+(?:with|to)\b",
+        r"\bin connection with\b",
+    ),
 )
 
 _rule(

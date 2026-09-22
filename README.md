@@ -10,7 +10,7 @@ perfectly good writing.
 It is not a detector and will not tell you who wrote something. Pointed at
 labelled data it ranked New Yorker short stories as more machine-like than
 GPT-4. I did not expect that, and I do not know how much of it is the corpus
-being fiction rather than the rules being wrong. Either way it marks the
+being fiction rather than the rules being wrong. Either way it is the
 boundary the tool works inside: what these rules measure is register, which a
 genre owns as much as an author does.
 
@@ -110,6 +110,18 @@ doublet rule was written for. A human caught it by reading.
 **v1.5.1.** Three consecutive version bumps failed silently, so the built
 wheel carried a version four releases behind the code.
 
+**v1.6.4.** Three structural tells in the catalogue had no rule. Copula
+avoidance, where a verb of function replaces the verb to be. Vague
+association, where a hedged verb stands in place of the relationship a source
+actually states. And a corrective that arrives in the following sentence
+instead of after a comma, which every existing negation pattern steps over.
+All three carry citations rather than `local`. Measured against 48,000 words
+of my own technical prose they fire zero times, which describes that register
+and is not a precision claim, since expository writing leans on these
+constantly. The `audit-demo` corpus is 378 words and cannot settle it, so run
+`sloprefine audit` on real corpora before trusting any of the three. The
+README was avoiding a copula in the sentence about what the rules measure.
+
 **v1.6.3.** Litotes went in on my judgement rather than on a source, after
 two of them got past every rule in the table. The catalogued tell is
 contrastive negation, which `negation` already covered, and the same
@@ -201,6 +213,8 @@ clone it and run `pip install -e ".[dev,mcp]"` instead.
 | `vague` | a 40-word paragraph naming no number, year, unit or proper noun | Kao; local |
 | `person` | "you" standing in for "one" or "we" | local |
 | `litotes` | "not a subtle one" where "a large one" was meant | local |
+| `copula` | "serves as", "stands as", "marks" where "is" was the word | Wikipedia |
+| `assoc` | "associated with", "linked to" standing in for the relationship | Wikipedia |
 
 <!-- sloprefine: on -->
 

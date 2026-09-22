@@ -68,6 +68,10 @@ def test_offsets_point_at_source():
     ("This isn't just chemistry.", "negation"),
     ("It's not about the sensor, it's the sample.", "negation"),
     ("The gap is not a subtle one.", "litotes"),
+    ("Gallery 825 serves as the exhibition space.", "copula"),
+    ("The reform marks a turning point in the province.", "copula"),
+    ("He was identified as being associated with the leadership.", "assoc"),
+    ("This is not dissolution. Rather, it is a becoming.", "negation"),
     ("That result is not uncommon.", "litotes"),
     ("The method is not without merit.", "litotes"),
     ("Fast, cheap, and reliable.", "parallel"),   # subsumed: see _drop_subsumed_tricolons

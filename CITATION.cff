@@ -9,7 +9,7 @@ authors:
     email: "frumenovski@gmail.com"
 repository-code: "https://github.com/filiprumenovski/sloprefine"
 license: MIT
-version: 1.6.3
+version: 1.6.4
 date-released: 2026-09-22
 abstract: >-
   A dependency-free prose linter that flags the documented surface markers of
