@@ -1,0 +1,43 @@
+name: publish
+
+# Trusted publishing: PyPI verifies this workflow's OIDC identity, so there is
+# no API token stored in the repository and none to rotate or leak.
+# Configure the publisher once at
+# https://pypi.org/manage/account/publishing/ before the first release.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write          # required for trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Publish nothing that does not pass its own suite and its own linter.
+      - run: pip install -e ".[dev,mcp]"
+      - run: pytest -q
+      - run: ruff check .
+      - run: sloprefine README.md CONTRIBUTING.md --no-color
+
+      # The tag must match the version the package actually declares, or the
+      # release and the artifact disagree for the rest of time.
+      - name: tag matches the declared version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          declared=$(python -c "import sloprefine; print(sloprefine.__version__)")
+          test "$tag" = "$declared" || {
+            echo "tag $tag != declared version $declared"; exit 1; }
+
+      - run: pip install build
+      - run: python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
