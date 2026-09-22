@@ -53,7 +53,10 @@ Profile = Literal["talk", "essay", "docs"]
 try:
     from mcp.server.mcpserver import MCPServer
 except ImportError as exc:  # pragma: no cover - optional extra
-    raise ImportError(
+    # ModuleNotFoundError, not ImportError: it is a subclass, so callers that
+    # catch ImportError are unaffected, but pytest.importorskip only skips on
+    # the narrower type and errors the whole collection on the wider one.
+    raise ModuleNotFoundError(
         'the MCP server needs the optional extra: pip install "sloprefine[mcp]"'
     ) from exc
 

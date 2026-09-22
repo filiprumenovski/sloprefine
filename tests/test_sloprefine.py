@@ -1560,17 +1560,27 @@ def test_talk_profile_enables_the_person_rule():
 
 # --------------------------------------------------------- v1.5: MCP server
 
-mcp_server = pytest.importorskip(
-    "sloprefine.mcp_server",
+# Imported conditionally rather than with a module-level pytest.importorskip,
+# which raises Skipped at import time and takes the whole file with it: without
+# the extra installed that silently skipped all 172 tests, not just these nine.
+try:
+    from sloprefine import mcp_server
+except ImportError:
+    mcp_server = None
+
+needs_mcp = pytest.mark.skipif(
+    mcp_server is None,
     reason='needs the optional extra: pip install "sloprefine[mcp]"')
 
 
+@needs_mcp
 def test_mcp_tools_are_registered():
     import asyncio
     tools = asyncio.run(mcp_server.server.list_tools())
     assert {t.name for t in tools} == {"check", "drift", "contract", "metrics"}
 
 
+@needs_mcp
 def test_mcp_check_accepts_text_not_just_paths():
     """A model revising its own output has the draft in context and no file
     on disk, so text is the primary input."""
@@ -1580,6 +1590,7 @@ def test_mcp_check_accepts_text_not_just_paths():
                             ).startswith("PASS")
 
 
+@needs_mcp
 def test_mcp_check_reports_the_round_budget():
     """The failure mode of a linter in a loop is revising until the count
     hits zero, so the stop condition travels with the result."""
@@ -1590,11 +1601,13 @@ def test_mcp_check_reports_the_round_budget():
     assert "round limit reached" in late
 
 
+@needs_mcp
 def test_mcp_check_requires_an_input():
     with pytest.raises(ValueError, match="text or path"):
         mcp_server.check()
 
 
+@needs_mcp
 def test_mcp_profile_reaches_the_checks():
     """Regression guard on the bug that made --profile a no-op in the CLI."""
     text = "One gene. " + (CORPUS / "clean_control.txt").read_text()
@@ -1602,6 +1615,7 @@ def test_mcp_profile_reaches_the_checks():
     assert "[runt]" in mcp_server.check(text=text, profile="talk")
 
 
+@needs_mcp
 def test_mcp_drift_returns_a_verdict():
     out = mcp_server.drift(before="No order. No motif. No structure.",
                            after="There was no order to it, and no motif "
@@ -1609,11 +1623,13 @@ def test_mcp_drift_returns_a_verdict():
     assert out.split()[0] in {"IMPROVED", "TRADED", "CHURNED", "OVERFIT", "CHOPPY"}
 
 
+@needs_mcp
 def test_mcp_contract_differs_by_audience():
     assert mcp_server.contract(audience="expert") != mcp_server.contract(
         audience="general")
 
 
+@needs_mcp
 def test_mcp_tool_descriptions_state_the_limitation():
     """The description is the only place the calling model learns that half
     these rules failed their own audit. Overselling here makes the model
@@ -1626,6 +1642,7 @@ def test_mcp_tool_descriptions_state_the_limitation():
     assert "Do not revise past a PASS" in tools["check"]
 
 
+@needs_mcp
 def test_mcp_ignores_ambient_config():
     """An MCP server is launched from an arbitrary cwd by the agent host.
     Picking up a .sloprefine.toml from there makes the same text score
