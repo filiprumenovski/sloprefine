@@ -4,7 +4,7 @@
 
 Every rule needs a `fix`: one imperative sentence a model can act on without
 reading the rationale. `why` explains the rule to a person; `fix` is what gets
-shipped into the revision loop and into `slopcheck prompt`. A test asserts
+shipped into the revision loop and into `sloprefine prompt`. A test asserts
 every rule has one.
 
 Every rule also needs a source, meaning not a vibe but something someone put
@@ -41,7 +41,7 @@ audience it applies to; `reader.py` takes one because the evidence says the
 two reader clusters want different things. If you approximate a feature the
 source measured with a model, name the proxy in the code and in the output.
 
-Then run `slopcheck audit` against a real corpus pair and report the
+Then run `sloprefine audit` against a real corpus pair and report the
 enrichment. A signal that does not separate machine text from human text on
 current models is not a signal yet.
 

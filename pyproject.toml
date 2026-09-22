@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "slopcheck"
+name = "sloprefinery"
 version = "1.5.0"
-description = "Prose linter for model write-check-revise loops."
+description = "A slop refinery: crude prose in, fewer machine-writing markers out."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -32,8 +32,8 @@ lm = ["transformers>=4.40", "torch>=2.0"]
 mcp = ["mcp>=2.0"]
 
 [project.scripts]
-slopcheck = "slopcheck.cli:main"
-slopcheck-mcp = "slopcheck.mcp_server:main"
+sloprefine = "slopcheck.cli:main"
+sloprefine-mcp = "slopcheck.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/slopcheck"]

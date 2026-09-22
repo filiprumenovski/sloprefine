@@ -2,7 +2,7 @@
 
 <!-- slopcheck: off -->
 
-Twelve short documents, six per side, so `slopcheck audit` runs out of the box
+Twelve short documents, six per side, so `sloprefine audit` runs out of the box
 and the enrichment table in the main README reproduces.
 
 **These are not evidence.** Both sides were written by hand to exercise the

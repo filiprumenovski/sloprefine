@@ -6,8 +6,8 @@ Per-rule weights measured from a labelled corpus pair, rather than the
 severities assigned by hand in `rules.py`.
 
 ```bash
-slopcheck audit --ai out/model --human ~/writing/mine --save mine.json
-slopcheck check draft.md --calibration mine.json
+sloprefine audit --ai out/model --human ~/writing/mine --save mine.json
+sloprefine check draft.md --calibration mine.json
 ```
 
 ## fiction-2023.json

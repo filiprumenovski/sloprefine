@@ -26,12 +26,12 @@ prose, which is the opposite of what this package is for.
 
 Run:
 
-    pip install "slopcheck[mcp]"
-    slopcheck-mcp
+    pip install "sloprefinery[mcp]"
+    sloprefine-mcp
 
 Claude Desktop / Claude Code config:
 
-    {"mcpServers": {"slopcheck": {"command": "slopcheck-mcp"}}}
+    {"mcpServers": {"slopcheck": {"command": "sloprefine-mcp"}}}
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ try:
     from mcp.server.mcpserver import MCPServer
 except ImportError as exc:  # pragma: no cover - optional extra
     raise ImportError(
-        'the MCP server needs the optional extra: pip install "slopcheck[mcp]"'
+        'the MCP server needs the optional extra: pip install "sloprefinery[mcp]"'
     ) from exc
 
 

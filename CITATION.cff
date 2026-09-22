@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "slopcheck: a prose linter for the published markers of machine-generated writing"
+title: "sloprefinery: a slop refinery for prose"
 message: "If you use this software, please cite it as below."
 type: software
 authors:

@@ -1,77 +1,98 @@
 # slopcheck
 
-A linter for prose, in the spirit of `clippy` or `ruff`, built to sit inside a
-model's own write-check-revise loop.
+This is a slop refinery. Crude prose goes in, and something with fewer of the
+documented markers of machine-generated writing comes out. The residue is
+reported rather than discarded, because about half of it turns out to be
+perfectly good writing.
 
-The markers of machine-generated writing are documented in a dozen papers and
-a hundred blog posts. A model can be told to avoid them up front, and its
-output can be checked against them afterwards. Neither step needs a human in
-the middle, and neither step needs a detector making claims about authorship.
+It is not a detector. It will not tell you who wrote something, and the one
+time it was pointed at real labelled data it decided that New Yorker short
+stories were more machine-like than GPT-4 was. I do not know how much of that
+is the corpus being fiction and how much of it is the rules being wrong.
 
 ```bash
-# 1. constrain generation
-slopcheck prompt --voice me.json > .style-contract
-
-# 2. check the output, get imperative fixes back
-slopcheck check draft.md --format agent
-
-# 3. decide whether the revision actually helped
-slopcheck drift draft.md draft.v2.md
+sloprefine prompt --profile talk > .style-contract   # constrain generation
+sloprefine check draft.md --profile talk             # what to change
+sloprefine drift draft.md draft.v2.md                # did that edit help
 ```
 
-Step 3 is the one people skip, and the reason this repository exists at all.
-Optimizing a draft toward zero hits does not monotonically improve it. On the
-revision this tool was built for, rule hits fell from 24 to 1 while lexical
-density fell 0.530 to 0.493, which is the direction Shan et al. measure for
-AI-*edited* text. Dissolving fragment stacks into flowing sentences adds
-function words by construction. Trading one measured marker for another is not
-progress, so the loop needs something to stop on besides zero.
+Step three is the one people skip. Across the revision rounds of the talk this
+repository was built for, two thirds of them introduced a new hit while fixing
+an old one, and one of them reintroduced the exact cadence the whole project
+exists to remove, with a paragraph of metrics arguing that it was an
+improvement.
 
-```
-$ slopcheck check talk.txt --format agent
-FAIL 22
-[fragments] x9: Join at least two of the fragments into one longer sentence. Vary the lengths deliberately.
-  L5 Specificity lives in the enzyme. / OGT breaks that. / One gene. / O...
-  L11 We tested that. / It's wrong. / And it isn't close.
-  L15 Same proteins. / Same residue types. / Matched null.
-  ... 6 more
-[narrator] x5: Delete the announcement and let the point land unannounced.
-  L17 That's the paradox
-  L25 Here is the test
-[tricolon] x4: Use two items or four, or dissolve the list into a clause.
-  L23 No order. No motif. No structure.
-! 9 consecutive sentences of near-identical length; break the metronome
+## Things this repository has been wrong about
 
-$ slopcheck drift talk.txt talk.v2.txt
-TRADED hits 22->1 density 0.530->0.493
-! lexical density fell 0.037 while fixing 21 hit(s): the revision added
-  function words. [SLH26] measures that drop as the AI-editing signature
-```
+The commit log is the interesting documentation, in rough order of how much each one should have been obvious.
 
-Output is grouped by rule so the fix instruction is emitted once rather than
-once per hit: 1,543 characters for the agent format against 2,842 for the
-human report and 7,636 for JSON, on the same document.
+**v0.5.** Three separate metrics agreed that a revision had improved the
+prose. All three were measuring the same artifact, because chopping text into
+fragments raises lexical density and burstiness by construction. One artifact
+counted three times looks exactly like three confirmations.
 
-Four layers under the hood:
+**v0.8.** The parallelism budget spent its allowance on the widest runs, which
+gave the worst offender in every document a guaranteed free pass and flagged
+the milder ones underneath it. A test asserted this behaviour and passed.
 
-1. **Rules.** Sixteen lexical and structural checks, each citing its source,
-   each carrying an imperative fix a model can act on.
-2. **Stylometry.** Model-free features from the detection literature,
-   reported with no thresholds attached.
-3. **Reader signals.** Post-2022 evidence about what readers actually
-   preferred, keyed to an audience, because the evidence says the two reader
-   populations want opposite things.
-4. **Voiceprints.** A baseline built from your own writing. In a generation
-   loop this is a *target*, not a defense: `slopcheck prompt --voice me.json`
-   puts your measured sentence length, lexical density and contraction rate
-   in front of the model before it writes a word. This is the layer with the
-   strongest evidence behind it, and the reason is below.
+**v1.1.** Smith-Waterman local alignment was the obviously correct algorithm
+for matching parallel structure through noisy edges. Measured, it scored
+ordinary prose higher than the constructions it was built to catch. The module
+is still in the tree with the numbers in its docstring so that nobody,
+including its author, tries it again.
+
+**v1.2.1.** The syntactic-template measure was described as generalising every
+shape rule in the package. Breaking seven of the eight doublets in a real
+document moved the number by 0.0017, in the wrong direction.
+
+**v1.3.** The first audit against labelled data found that ten of twenty rules
+did not discriminate, and eight fired more often on human writing. The em dash
+was 2.6 times more common in the human corpus. The fragment stack, which is
+the thing that started this project, was 2.7 times more common.
+
+**v1.4.1.** The headline metric was calibrated against a "human prose control"
+written by hand for this repository. Against real human writing it inverted.
+
+**v1.4.3.** The profile that pins the cadence rules was applied to a config
+object that the next line rebuilt from scratch, silently discarding it. For
+four rounds the tool reported PASS on a draft containing the sentence the
+doublet rule was written for. A human caught it by reading.
+
+**v1.5.1.** Three consecutive version bumps failed silently, so the built
+wheel carried a version four releases behind the code.
+
+Every one of these was found by measuring something that had already been
+written down as true. There is a test for each, and I expect this list to keep
+growing, because the claims that go unmeasured are the ones stated most
+confidently.
+
+## This file is linted by the thing it documents
+
+CI fails if this README scores above zero, which rules out most of the ways a
+README is usually funny.
+
+<!-- slopcheck: off (the next paragraph commits every violation it names,
+     which is the point, and it is the only hand-written exemption in the
+     repository that is not a table of rule names) -->
+
+No fragments for emphasis. No rule of three. No "it's not a linter, it's a
+refinery."
+
+<!-- slopcheck: on -->
+
+Writing the marketing copy under the marketing copy's own constraints is a
+useful exercise and not a pleasant one.
+
+The linter has caught five genuine tricolons in these docs, one antithesis in
+the sentence explaining why antitheses are bad, and a paragraph making a
+confident claim with nothing specific in it, which was the paragraph about
+how confident claims need specifics.
 
 ## Install
 
 ```bash
 pip install -e ".[dev]"
-slopcheck draft.md
+sloprefine draft.md
 ```
 
 This needs Python 3.11 or newer and has no runtime dependencies. The
@@ -105,7 +126,7 @@ needs them.
 
 <!-- slopcheck: on -->
 
-`slopcheck rules` prints all of them with citations and rationale.
+`sloprefine rules` prints all of them with citations and rationale.
 
 ### Stylometry
 
@@ -208,7 +229,7 @@ what gives the game away.
 ### The audit: markers decay, so measure the decay
 
 ```bash
-slopcheck audit --ai out/gpt-drafts --human ~/writing/mine
+sloprefine audit --ai out/gpt-drafts --human ~/writing/mine
 ```
 
 Everything above is dated, and the `vocab` list shows why. Kobak et al.
@@ -245,9 +266,9 @@ before you used them.
 ### Voiceprints
 
 ```bash
-slopcheck voice build ~/writing/published -o me.json
-slopcheck prompt --voice me.json          # targets, before generation
-slopcheck check draft.md --voice me.json  # deviations, after
+sloprefine voice build ~/writing/published -o me.json
+sloprefine prompt --voice me.json          # targets, before generation
+sloprefine check draft.md --voice me.json  # deviations, after
 ```
 
 A voiceprint is the robust center and spread (median and MAD) of each feature
@@ -291,11 +312,11 @@ implementation if you want detection. This is a writing tool.
 
 ```bash
 pip install "slopcheck[mcp]"
-slopcheck-mcp
+sloprefine-mcp
 ```
 
 ```json
-{"mcpServers": {"slopcheck": {"command": "slopcheck-mcp"}}}
+{"mcpServers": {"slopcheck": {"command": "sloprefine-mcp"}}}
 ```
 
 Four tools: `check` returns PASS or the grouped fixes, `drift` compares two
@@ -349,10 +370,10 @@ returns 1 on `churned`, `overfit` or `traded` by default.
 # revise.sh: loop with a stop condition that is not "zero hits"
 cp draft.md work.md
 for round in 1 2 3; do
-  slopcheck check work.md --format agent > feedback.txt || true
+  sloprefine check work.md --format agent > feedback.txt || true
   grep -q '^PASS$' feedback.txt && break
   your-model --instructions feedback.txt --input work.md --output next.md
-  if ! slopcheck drift work.md next.md; then
+  if ! sloprefine drift work.md next.md; then
     echo "round $round did not improve the draft; keeping the previous version"
     break
   fi
@@ -379,7 +400,7 @@ if not review.passed:
 For a persistent agent config, put the contract where the model reads it:
 
 ```bash
-slopcheck prompt --voice me.json >> AGENTS.md
+sloprefine prompt --voice me.json >> AGENTS.md
 ```
 
 ## A worked example, including the embarrassing part
