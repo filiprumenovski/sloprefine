@@ -457,17 +457,35 @@ def test_drift_detects_overfitting_past_zero():
     assert any("optimize" in n for n in d.notes)
 
 
-def test_drift_flags_the_density_trade():
-    """The measured failure mode: fragments dissolved into flowing prose fix
-    the rule and add function words, which is the [SLH26] editing direction."""
+def test_density_drop_is_attributed_to_cadence_not_charged_twice():
+    """This test previously asserted "traded" and was wrong.
+
+    Dissolving fragments lowers lexical density BY CONSTRUCTION, because
+    fragments carry almost no function words. Charging that drop as a separate
+    cost double-counts one change, and in practice it argued for putting the
+    fragments back. When cadence moves, the density delta is a consequence of
+    it and drift must say so rather than treat it as independent evidence."""
     before = "No order. No motif. No structure. " * 3
     after = ("There was not any order to it, and there was not a motif in it, "
              "and there was not much of a structure to any of it at all, as "
              "far as we were able to tell from what we had in front of us. ")
     d = agent.drift(before, after, CFG)
     assert d.hits_after < d.hits_before
-    assert d.verdict == "traded"
-    assert any("function words" in n for n in d.notes)
+    assert d.choppiness_after < d.choppiness_before
+    assert d.verdict == "improved"
+    assert any("not independent evidence" in n for n in d.notes)
+
+
+def test_density_trade_still_fires_when_cadence_holds_still():
+    """The trade verdict is not gone, it is scoped: it applies when the
+    revision spent density WITHOUT changing cadence."""
+    before = "The classifier reads tile composition and reports cluster sites."
+    after = ("It is the case that the thing which reads what is in the tile "
+             "is the one that then goes on to say where it is that the sites "
+             "of the clusters are to be found in it.")
+    d = agent.drift(before, after, CFG)
+    assert abs(d.choppiness_after - d.choppiness_before) < 0.02
+    assert d.density_after < d.density_before
 
 
 def test_drift_verdicts_are_exhaustive():
@@ -656,3 +674,71 @@ def test_cli_audience_flag(tmp_path, capsys, monkeypatch):
     f.write_text("The result was wonderful and bright, a great joy. " * 8)
     main([str(f), "--audience", "expert", "--no-color"])
     assert "more positive" in capsys.readouterr().out
+
+
+# ------------------------------------------------------- v0.5: cadence
+
+from slopcheck import cadence
+
+
+def test_choppy_control_is_choppy_and_clean_control_is_not():
+    choppy = cadence.compute(Document((CORPUS / "choppy_control.txt").read_text()))
+    clean = cadence.compute(Document((CORPUS / "clean_control.txt").read_text()))
+    assert choppy.verdict == "choppy" and clean.verdict == "ok"
+    assert choppy.choppiness > 4 * clean.choppiness
+
+
+def test_choppiness_is_word_weighted_not_sentence_weighted():
+    """A document can be half short SENTENCES and still spend most of its
+    runtime in long ones. Word share is what a listener experiences."""
+    long_tail = "Yes. No. Maybe. " + ("The buffer was cold and nobody had "
+                                      "checked the timer before we started. ") * 6
+    c = cadence.compute(Document(long_tail))
+    sentence_share = 3 / len(Document(long_tail).sentences)
+    assert c.short_share < sentence_share / 2
+
+
+def test_verbless_share_separates_fragments_from_short_sentences():
+    """"It worked." is a short sentence. "One gene." is a fragment. The
+    difference is what makes a beat land, and it is what the rule layer,
+    which only counts words, cannot see."""
+    fragments = cadence.compute(Document("One gene. One site. No motif."))
+    shorties = cadence.compute(Document("It worked. She knew. They ran."))
+    assert fragments.verbless_share > shorties.verbless_share
+
+
+def test_run_mass_measures_the_rule_layer_pattern():
+    # "A." is a single capital plus a period, which the splitter reads as an
+    # initial and refuses to break on, so the fixture uses real words.
+    clustered = "Yes. No. Maybe. " + "word " * 40 + "."
+    assert cadence.compute(Document(clustered)).run_mass > 0
+    spread = ("Yes it did. " + "word " * 30 + ". No it did not. "
+              + "other " * 30 + ".")
+    assert cadence.compute(Document(spread)).run_mass == 0
+
+
+def test_collinearity_note_fires_only_on_real_cadence_movement():
+    assert cadence.collinearity_note(0.30) is not None
+    assert cadence.collinearity_note(0.001) is None
+
+
+def test_drift_ranks_cadence_above_the_other_metrics():
+    """The regression this module exists for: a revision that reintroduces
+    the staccato cadence also raises lexical density and burstiness, and
+    those gains must not be allowed to outvote the cadence."""
+    flowing = ("The enzyme has one gene and one catalytic site, and it reaches "
+               "thousands of substrates without a consensus sequence anywhere "
+               "in the set. ") * 3
+    chopped = "One gene. One site. Thousands of targets. No motif. " * 3
+    d = agent.drift(flowing, chopped, CFG)
+    assert d.verdict == "choppy"
+    assert d.density_after > d.density_before      # density REWARDS the artifact
+    assert any("outranks" in n for n in d.notes)
+
+
+def test_cadence_appears_in_the_report_and_the_agent_notes():
+    text = (CORPUS / "choppy_control.txt").read_text()
+    result = analyze("x.txt", text, CFG)
+    assert result.cadence is not None
+    assert "cadence" in render_text(result, color=False)
+    assert any("staccato" in n for n in agent.review("x.txt", text, CFG).notes)

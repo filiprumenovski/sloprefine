@@ -7,6 +7,7 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import cadence as cadence_mod
 from . import metrics as metrics_mod
 from . import reader as reader_mod
 from . import stylometry as stylometry_mod
@@ -22,6 +23,7 @@ CONFIG_NAMES = (".slopcheck.toml", "slopcheck.toml")
 class Config:
     disabled: tuple[str, ...] = ()
     allow: frozenset[str] = frozenset()
+    max_choppiness: float | None = None
     max_hits: int | None = None
     max_per_1k: float | None = None
     skip_code_blocks: bool = True
@@ -51,6 +53,7 @@ class Config:
             allow=frozenset(w.lower() for w in data.get("allow", [])),
             max_hits=data.get("max_hits"),
             max_per_1k=data.get("max_per_1k"),
+            max_choppiness=data.get("max_choppiness"),
             skip_code_blocks=data.get("skip_code_blocks", True),
             voice_path=data.get("voice"),
             audience=data.get("audience"),
@@ -63,6 +66,7 @@ class Result:
     text: str = field(repr=False, default="")
     hits: list[Hit] = field(default_factory=list)
     metrics: metrics_mod.Metrics | None = None
+    cadence: cadence_mod.Cadence | None = None
     style: stylometry_mod.Stylometry | None = None
     reader: reader_mod.ReaderSignals | None = None
     reader_notes: list[str] = field(default_factory=list)
@@ -100,6 +104,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
     if config.voice is not None:
         deviations = config.voice.compare(style)
         notes = voice_mod.interpret(deviations, threshold=config.z_threshold)
+    cad = cadence_mod.compute(doc)
     signals, reader_notes = None, []
     if config.audience:
         signals = reader_mod.compute(doc, config.audience)
@@ -107,7 +112,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
     return Result(
         path=path, text=text, hits=hits, metrics=metrics_mod.compute(doc),
         style=style, deviations=deviations, voice_notes=notes,
-        reader=signals, reader_notes=reader_notes,
+        reader=signals, reader_notes=reader_notes, cadence=cad,
     )
 
 
@@ -156,6 +161,9 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
 
     m = result.metrics
     out.append("  " + "-" * 60)
+    if result.cadence is not None:
+        colour = RED if result.cadence.verdict == "choppy" else GREEN
+        out.append("  " + c(BOLD, "cadence ") + c(colour, result.cadence.render()))
     out.append(
         f"  sentences={m.sentences}  mean={m.mean_len}w  sd={m.stdev_len}  "
         f"CV={m.cv}  flat-run={m.longest_flat_run}"
@@ -183,6 +191,8 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
         out.append("  " + c(YELLOW, "read  ") + note)
     for note in result.voice_notes:
         out.append("  " + c(YELLOW, "voice ") + note)
+    for w in (result.cadence.warnings() if result.cadence else []):
+        out.append("  " + c(RED, "CHOP  ") + w)
     for w in m.warnings():
         out.append("  " + c(YELLOW, "warn ") + w)
     total_color = GREEN if result.total == 0 else RED
@@ -201,6 +211,7 @@ def render_json(results: list[Result]) -> str:
             "total": r.total,
             "per_1k": r.per_1k,
             "counts": r.counts(),
+            "cadence": r.cadence.as_dict() if r.cadence else {},
             "metrics": r.metrics.as_dict(),
             "stylometry": r.style.as_dict() if r.style else {},
             "deviations": r.deviations,

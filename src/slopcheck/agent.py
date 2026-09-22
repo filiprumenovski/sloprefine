@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import cadence as cadence_mod
 from .report import Config, Result, analyze
 from .rules import RULES
 
@@ -90,7 +91,8 @@ def review(path: str, text: str, config: Config | None = None) -> Review:
         )
         for hit in result.hits
     ]
-    notes = (list(result.metrics.warnings()) + list(result.reader_notes)
+    notes = ((result.cadence.warnings() if result.cadence else [])
+             + list(result.metrics.warnings()) + list(result.reader_notes)
              + list(result.voice_notes))
     limit = config.max_hits if config.max_hits is not None else 0
     return Review(
@@ -166,6 +168,8 @@ class Drift:
 
     hits_before: int
     hits_after: int
+    choppiness_before: float
+    choppiness_after: float
     density_before: float
     density_after: float
     entropy_before: float
@@ -181,6 +185,8 @@ class Drift:
         return {
             "hits_before": self.hits_before,
             "hits_after": self.hits_after,
+            "choppiness_before": self.choppiness_before,
+            "choppiness_after": self.choppiness_after,
             "density_before": self.density_before,
             "density_after": self.density_after,
             "entropy_before": self.entropy_before,
@@ -195,6 +201,7 @@ class Drift:
             f"hits {self.hits_before}->{self.hits_after} "
             f"density {self.density_before:.3f}->{self.density_after:.3f}"
         )
+        head += f" choppiness {self.choppiness_before:.2f}->{self.choppiness_after:.2f}"
         return "\n".join([head] + [f"! {n}" for n in self.notes])
 
 
@@ -212,6 +219,9 @@ def drift(before: str, after: str, config: Config | None = None) -> Drift:
     r_after = analyze("after", after, config)
     s_before, s_after = r_before.style, r_after.style
     assert s_before is not None and s_after is not None
+    c_before = r_before.cadence.choppiness if r_before.cadence else 0.0
+    c_after = r_after.cadence.choppiness if r_after.cadence else 0.0
+    delta_chop = c_after - c_before
 
     d_before, d_after = s_before.lexical_density, s_after.lexical_density
     e_before, e_after = s_before.entropy_norm, s_after.entropy_norm
@@ -219,6 +229,33 @@ def drift(before: str, after: str, config: Config | None = None) -> Drift:
     delta_density = d_after - d_before
 
     notes: list[str] = []
+    collinear = cadence_mod.collinearity_note(delta_chop)
+
+    if delta_chop >= 0.03 or (r_after.cadence and r_after.cadence.verdict == "choppy"
+                              and delta_chop > 0):
+        # Cadence outranks everything else here. The density and burstiness
+        # gains that accompany a choppiness rise are the same artifact seen
+        # three times, not three confirmations.
+        return Drift(
+            hits_before=r_before.total, hits_after=r_after.total,
+            choppiness_before=c_before, choppiness_after=c_after,
+            density_before=d_before, density_after=d_after,
+            entropy_before=e_before, entropy_after=e_after,
+            verdict="choppy",
+            notes=[
+                (
+                    f"choppiness rose {c_before:.2f} -> {c_after:.2f}. This is "
+                    "the cadence a reader hears first, and it outranks the "
+                    "other metrics here"
+                ),
+            ] + ([collinear] if collinear else []),
+        )
+
+    if delta_chop <= -0.03:
+        notes.append(f"choppiness fell {c_before:.2f} -> {c_after:.2f}")
+        if collinear:
+            notes.append(collinear)
+
     if delta_hits <= 0 and r_after.total == 0:
         verdict = "overfit"
         notes.append(
@@ -228,7 +265,9 @@ def drift(before: str, after: str, config: Config | None = None) -> Drift:
     elif delta_hits < MIN_HIT_REDUCTION:
         verdict = "churned"
         notes.append("the edit did not reduce hits; revert or try a different fix")
-    elif delta_density <= -DENSITY_COST:
+    elif delta_density <= -DENSITY_COST and abs(delta_chop) < 0.02:
+        # Only call it a trade when cadence held still. If cadence moved, the
+        # density change is a consequence of it, not a separate cost.
         verdict = "traded"
         notes.append(
             f"lexical density fell {abs(delta_density):.3f} while fixing "
@@ -243,6 +282,8 @@ def drift(before: str, after: str, config: Config | None = None) -> Drift:
     return Drift(
         hits_before=r_before.total,
         hits_after=r_after.total,
+        choppiness_before=c_before,
+        choppiness_after=c_after,
         density_before=d_before,
         density_after=d_after,
         entropy_before=e_before,

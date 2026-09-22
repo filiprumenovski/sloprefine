@@ -28,4 +28,5 @@ jobs:
           slopcheck check corpus/slop_control.txt --format agent || true
           slopcheck drift corpus/slop_control.txt corpus/clean_control.txt || true
           slopcheck prompt --audience expert > /dev/null
+          slopcheck check corpus/choppy_control.txt --max-choppiness 0.17 && exit 1 || true
           slopcheck audit --ai corpus/audit-demo/machine --human corpus/audit-demo/human

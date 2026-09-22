@@ -1,0 +1,9 @@
+Here is the thing about the result. It's wrong. And it isn't close.
+
+We ran it again. Same buffer. Same column. Same nothing.
+
+So we looked harder. One gene. One site. Thousands of targets. No motif anywhere in the sequence.
+
+The model is blunt. On purpose. It sees counts. Nothing else. No order, no spacing, no structure.
+
+It works anyway. Four times out of five. That's the paradox.

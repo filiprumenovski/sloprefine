@@ -57,6 +57,9 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
                         '(needs pip install "slopcheck[lm]")')
     p.add_argument("--check-code-blocks", action="store_true",
                    help="do not exempt fenced code blocks in Markdown")
+    p.add_argument("--max-choppiness", type=float, metavar="X",
+                   help="exit 1 above this cadence score (0.17 is the "
+                        "calibrated band; see cadence.py)")
     p.add_argument("--max-hits", type=int, metavar="N")
     p.add_argument("--max-per-1k", type=float, metavar="X")
 
@@ -251,6 +254,8 @@ def _cmd_check(args) -> int:
         max_hits=args.max_hits if args.max_hits is not None else config.max_hits,
         max_per_1k=(args.max_per_1k if args.max_per_1k is not None
                     else config.max_per_1k),
+        max_choppiness=(args.max_choppiness if args.max_choppiness is not None
+                        else config.max_choppiness),
         skip_code_blocks=not args.check_code_blocks and config.skip_code_blocks,
         voice=voiceprint,
         z_threshold=args.z_threshold,
@@ -287,6 +292,8 @@ def _cmd_check(args) -> int:
     over = any(
         (config.max_hits is not None and r.total > config.max_hits)
         or (config.max_per_1k is not None and r.per_1k > config.max_per_1k)
+        or (config.max_choppiness is not None and r.cadence is not None
+            and r.cadence.choppiness > config.max_choppiness)
         for r in results
     )
     return 1 if over else 0
