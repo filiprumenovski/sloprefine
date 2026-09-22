@@ -1204,3 +1204,59 @@ def test_sentence_splitting_is_linear():
     t0 = time.perf_counter(); Document(large); t_large = time.perf_counter() - t0
     # 8x the input must not cost more than ~24x the time
     assert t_large < max(t_small * 24, 0.5)
+
+
+# ------------------------------------------ v1.2: syntactic template reuse
+
+from slopcheck import templates
+
+
+def test_tagger_assigns_function_words_to_themselves():
+    """Function words are a closed class, so they are their own tags. That
+    is most of the syntactic signal and it needs no tagger."""
+    assert templates.tag("the") == "the"
+    assert templates.tag("of") == "of"
+    assert templates.tag("running") == "~ing"
+    assert templates.tag("quickly") == "~adv"
+    assert templates.tag("proteins") == "~pl"
+    assert templates.tag("Kobak") == "^"
+    assert templates.tag("1987") == "9"
+
+
+def test_structure_is_measured_against_a_shuffled_control():
+    """Shuffling preserves length and tag distribution exactly and destroys
+    order, so the ratio is length-controlled by construction."""
+    t = templates.compute(Document((CORPUS / "slop_control.txt").read_text()))
+    assert t.structure is not None and t.structure > 1.0
+
+
+def test_structure_is_none_when_the_baseline_is_too_sparse():
+    """Regression: a zero baseline returned 1.0, which reads as "no structure
+    above chance" and actually means "unmeasurable". On a short document
+    those are opposite conclusions."""
+    t = templates.compute(Document("Short text with very little in it at all."))
+    assert t.structure is None
+    assert "unmeasurable" in t.render()
+
+
+def test_gzip_estimator_is_kept_but_does_not_discriminate():
+    """CR-POS is computed because [SEL24] defines it. At single-document
+    length gzip has nothing for LZ77 to match, so the ratio is dominated by
+    the symbol distribution, which the shuffle preserves. Recorded so nobody
+    reaches for it expecting a signal."""
+    sloppy = templates.compute(Document((CORPUS / "slop_control.txt").read_text()))
+    clean = templates.compute(Document((CORPUS / "clean_control.txt").read_text()))
+    assert abs(sloppy.cr_structure - clean.cr_structure) < 0.1
+    # the direct estimator, on the same two documents, separates them
+    assert sloppy.structure > clean.structure * 2
+
+
+def test_template_reuse_is_a_generation_signal_not_an_editing_one():
+    """R0 and R2 are the same author writing the same content with different
+    cadence. Template reuse should NOT separate them, and does not. This is
+    the same generation-versus-editing split [SLH26] found in stylometry."""
+    import pathlib
+    a = templates.compute(Document(pathlib.Path(CORPUS / "clean_control.txt").read_text()))
+    b = templates.compute(Document(
+        pathlib.Path(CORPUS / "clean_control.txt").read_text().replace(". ", ".\n\n")))
+    assert abs(a.repeat_4 - b.repeat_4) < 0.02

@@ -41,6 +41,7 @@ __all__ = [
     "scorer",
     "style_contract",
     "stylometry",
+    "templates",
     "voice",
     "weighting",
 ]

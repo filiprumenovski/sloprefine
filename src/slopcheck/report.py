@@ -12,6 +12,7 @@ from . import metrics as metrics_mod
 from . import paragraph as paragraph_mod
 from . import reader as reader_mod
 from . import stylometry as stylometry_mod
+from . import templates as templates_mod
 from . import voice as voice_mod
 from . import weighting as weighting_mod
 from .checks import Hit, run_checks
@@ -84,6 +85,7 @@ class Result:
     metrics: metrics_mod.Metrics | None = None
     cadence: cadence_mod.Cadence | None = None
     structure: dict = field(default_factory=dict)
+    templates: templates_mod.Templates | None = None
     worst: list = field(default_factory=list)
     style: stylometry_mod.Stylometry | None = None
     reader: reader_mod.ReaderSignals | None = None
@@ -137,6 +139,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         deviations = config.voice.compare(style)
         notes = voice_mod.interpret(deviations, threshold=config.z_threshold)
     cad = cadence_mod.compute(doc)
+    tmpl = templates_mod.compute(doc)
     structure = {
         "closer_ratio": paragraph_mod.closer_ratio(doc),
         "specifics_per_1k": paragraph_mod.specificity_per_1k(doc),
@@ -153,6 +156,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         reader=signals, reader_notes=reader_notes, cadence=cad,
         structure=structure,
         worst=weighting_mod.worst_paragraphs(doc, hits),
+        templates=tmpl,
     )
 
 
@@ -204,6 +208,8 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
     if result.cadence is not None:
         colour = RED if result.cadence.verdict == "choppy" else GREEN
         out.append("  " + c(BOLD, "cadence ") + c(colour, result.cadence.render()))
+    if result.templates is not None:
+        out.append("  " + c(BOLD, "syntax  ") + result.templates.render())
     if result.structure:
         out.append("  " + c(BOLD, "shape   ")
                    + f"closers {result.structure['closer_ratio']:.0%} of paragraphs"
@@ -261,6 +267,7 @@ def render_json(results: list[Result]) -> str:
             "counts": r.counts(),
             "cadence": r.cadence.as_dict() if r.cadence else {},
             "structure": r.structure,
+            "templates": r.templates.as_dict() if r.templates else {},
             "metrics": r.metrics.as_dict(),
             "stylometry": r.style.as_dict() if r.style else {},
             "deviations": r.deviations,
