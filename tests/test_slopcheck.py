@@ -1634,3 +1634,24 @@ def test_mcp_ignores_ambient_config():
     # this repo's own config enables the sentence floor; the server must not
     assert "[runt]" not in mcp_server.check(text=text)
     assert "[runt]" in mcp_server.check(text=text, profile="talk")
+
+
+def test_version_is_declared_once():
+    """Regression: __init__ said 1.5.0 and pyproject said 0.8.0, so the
+    built wheel carried a version four releases behind the code."""
+    import re
+
+    import slopcheck
+    root = Path(__file__).resolve().parents[1]
+    declared = re.search(r'^version = "([^"]+)"',
+                         (root / "pyproject.toml").read_text(), re.MULTILINE).group(1)
+    assert declared == slopcheck.__version__
+
+
+def test_citation_file_matches_the_package():
+    import re
+    root = Path(__file__).resolve().parents[1]
+    cff = (root / "CITATION.cff").read_text()
+    import slopcheck
+    assert re.search(r"^version: (.+)$", cff, re.MULTILINE).group(1) == slopcheck.__version__
+    assert "Rumenovski" in cff

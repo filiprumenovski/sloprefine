@@ -1,0 +1,65 @@
+cff-version: 1.2.0
+title: "slopcheck: a prose linter for the published markers of machine-generated writing"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Rumenovski
+    given-names: Filip
+    affiliation: "Wayne State University"
+repository-code: "https://github.com/USERNAME/REPONAME"
+license: MIT
+version: 1.5.0
+date-released: 2026-09-22
+abstract: >-
+  A dependency-free prose linter that flags the documented surface markers of
+  machine-generated text, measures cadence and syntactic template reuse, and
+  calibrates its own rule weights against a labelled corpus. Rules carry
+  citations to the studies that motivate them; rules that fail to discriminate
+  on a supplied corpus are reported rather than silently applied.
+keywords:
+  - writing
+  - linter
+  - large language models
+  - stylometry
+  - text diversity
+references:
+  - type: article
+    title: "Delving into LLM-assisted writing in biomedical publications through excess vocabulary"
+    authors:
+      - family-names: Kobak
+        given-names: Dmitry
+    year: 2025
+    journal: "Science Advances"
+  - type: conference-paper
+    title: "Detection and Measurement of Syntactic Templates in Generated Text"
+    authors:
+      - family-names: Shaib
+        given-names: Chantal
+      - family-names: Elazar
+        given-names: Yanai
+      - family-names: Li
+        given-names: "Junyi Jessy"
+      - family-names: Wallace
+        given-names: "Byron C."
+    year: 2024
+    collection-title: "EMNLP"
+  - type: article
+    title: "AI Writers Have a Consistent Stylometric Footprint, but AI Editors Do Not"
+    authors:
+      - family-names: Shan
+        given-names: Zhengyang
+      - family-names: Lee
+        given-names: Yukyung
+      - family-names: Hao
+        given-names: Sophie
+    year: 2026
+    journal: "arXiv:2608.27855"
+  - type: article
+    title: "GPT detectors are biased against non-native English writers"
+    authors:
+      - family-names: Liang
+        given-names: Weixin
+      - family-names: Zou
+        given-names: James
+    year: 2023
+    journal: "Patterns"

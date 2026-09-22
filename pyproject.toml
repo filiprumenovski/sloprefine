@@ -4,12 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "slopcheck"
-version = "0.8.0"
+version = "1.5.0"
 description = "Prose linter for model write-check-revise loops."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Filip Rumenovski" }]
+authors = [{ name = "Filip Rumenovski", email = "EMAIL@example.com" }]
+maintainers = [{ name = "Filip Rumenovski" }]
 keywords = ["writing", "linter", "llm", "style", "prose", "agents", "evals"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -19,6 +20,11 @@ classifiers = [
   "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/USERNAME/REPONAME"
+Repository = "https://github.com/USERNAME/REPONAME"
+Issues = "https://github.com/USERNAME/REPONAME/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
