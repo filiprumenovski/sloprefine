@@ -1,5 +1,7 @@
 # sloprefine
 
+![](assets/refinery.svg)
+
 This is a slop refinery. Crude prose goes in, and something with fewer of the
 documented markers of machine-generated writing comes out. The residue is
 reported rather than discarded, because about half of it turns out to be
@@ -103,6 +105,8 @@ needs them.
 
 ### Rules
 
+<img src="assets/wanted.svg" alt="" align="right" width="210">
+
 <!-- sloprefine: off (this table quotes the patterns it documents) -->
 
 | rule | catches | source |
@@ -129,6 +133,8 @@ needs them.
 `sloprefine rules` prints all of them with citations and rationale.
 
 ### Stylometry
+
+![](assets/cadence.svg)
 
 Eight model-free features, computed per document with no language model, no
 API, and no corpus statistics. The core set comes from Shan, Lee and Hao

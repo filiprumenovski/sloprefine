@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" width="880" height="300" role="img" aria-labelledby="ttl dsc">
+<title id="ttl">The slop refinery</title>
+<desc id="dsc">Slop words fall into a hopper and through a distillation column, separating into a flask of refined prose and a residue drum labelled kept, not burned.</desc>
+<style>
+  /* Literal colours, not custom properties: renderers that do not resolve
+     var() drop the stroke entirely and the whole drawing disappears. */
+  .s     { fill:none; stroke:#6e7781; stroke-width:2.4;
+           stroke-linecap:round; stroke-linejoin:round; }
+  .thin  { stroke-width:1.5; }
+  .body  { fill:#24292f; fill-opacity:.04; }
+  .pipe  { fill:none; stroke:#9198a1; stroke-width:5; stroke-linecap:round; }
+  .burn  { stroke:#9198a1; }
+  .bub   { fill:#9198a1; fill-opacity:.6; }
+  .flame { fill:#d99b2b; }
+  .core  { fill:#e8c46a; }
+  .crude { fill:#bf6a45; }
+  .clean { fill:#4a9c7d; }
+  .wash  { fill-opacity:.25; }
+  text   { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .lbl   { font-size:11px; fill:#9198a1; letter-spacing:1.5px; }
+  .word  { font-size:13px; }
+  .note  { font-size:10px; fill:#9198a1; font-style:italic; }
+
+  @media (prefers-color-scheme:dark){
+    .s     { stroke:#e6edf3; }
+    .body  { fill:#ffffff; fill-opacity:.05; }
+    .pipe, .burn { stroke:#7d8590; }
+    .bub   { fill:#7d8590; }
+    .flame { fill:#e8b44a; }
+    .core  { fill:#f5dd9a; }
+    .crude { fill:#e08a5f; }
+    .clean { fill:#56bf95; }
+    .lbl, .note { fill:#7d8590; }
+  }
+</style>
+
+<!-- crude feed: slop words tumbling toward the hopper -->
+<g class="word crude">
+  <text x="44"  y="28" transform="rotate(-13 44 28)">delve</text>
+  <text x="130" y="19" transform="rotate(7 130 19)">pivotal</text>
+  <text x="208" y="33" transform="rotate(-5 208 33)">tapestry</text>
+  <text x="52"  y="60" transform="rotate(9 52 60)">moreover</text>
+  <text x="156" y="64" transform="rotate(-8 156 64)">crucial</text>
+  <text x="238" y="68" transform="rotate(12 238 68)">realm</text>
+  <text x="116" y="96" transform="rotate(-4 116 96)" font-size="20">&#8212;</text>
+  <text x="192" y="99" transform="rotate(6 192 99)" font-size="20">&#8212;</text>
+</g>
+
+<!-- hopper -->
+<path class="s body" d="M42 110 H258 L176 178 H124 Z"/>
+<path class="s thin" d="M62 124 H238 M80 140 H220"/>
+<text class="lbl" x="46" y="196">C R U D E</text>
+
+<!-- feed line into the column -->
+<path class="pipe" d="M150 178 V206 H318"/>
+
+<!-- the column -->
+<rect class="s body" x="318" y="44" width="104" height="170" rx="14"/>
+<path class="s thin" d="M318 78 H422 M318 112 H422 M318 146 H422 M318 180 H422"/>
+<g class="bub">
+  <circle cx="344" cy="96" r="3"/><circle cx="368" cy="90" r="2"/>
+  <circle cx="396" cy="98" r="2.4"/><circle cx="352" cy="130" r="2.4"/>
+  <circle cx="382" cy="126" r="3"/><circle cx="406" cy="132" r="2"/>
+  <circle cx="342" cy="164" r="2"/><circle cx="374" cy="160" r="2.6"/>
+</g>
+<text class="lbl" x="330" y="32">C O L U M N</text>
+
+<!-- burner, clear of the column bottom -->
+<path class="s thin burn" d="M336 250 H404"/>
+<path class="flame" d="M370 248 q-17 -15 -5 -32 q4 12 12 6 q13 14 -1 26 z"/>
+<path class="core"  d="M369 248 q-8 -8 -2 -17 q2 6 6 3 q6 8 0 14 z"/>
+
+<!-- overhead takeoff to the flask -->
+<path class="pipe" d="M422 62 H500 V40 H584 V54"/>
+<!-- bottoms draw, routed clear of the flask -->
+<path class="pipe" d="M422 196 H462 V238 H700"/>
+
+<!-- refined prose -->
+<path class="s body" d="M566 50 h36 v40 l42 88 a18 18 0 0 1 -16 26 h-88 a18 18 0 0 1 -16 -26 l42 -88 V50 Z"/>
+<path class="clean wash" d="M534 156 L524 178 a18 18 0 0 0 16 26 h88 a18 18 0 0 0 16 -26 L634 156 Z"/>
+<path class="s thin" d="M562 50 h44"/>
+<g class="word clean">
+  <text x="558" y="146" font-size="11">short</text>
+  <text x="552" y="188">plain</text>
+</g>
+<text class="lbl" x="548" y="224">P R O S E</text>
+
+<!-- residue -->
+<ellipse class="s body" cx="756" cy="196" rx="56" ry="13"/>
+<ellipse class="crude wash" cx="756" cy="196" rx="56" ry="13"/>
+<path class="s" d="M700 196 V246 a56 13 0 0 0 112 0 V196"/>
+<path class="s thin" d="M700 216 a56 13 0 0 0 112 0" opacity=".55"/>
+<text class="lbl" x="702" y="276">R E S I D U E</text>
+<text class="note" x="648" y="292">kept, not burned: half of it is good</text>
+</svg>

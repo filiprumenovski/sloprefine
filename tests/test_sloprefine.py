@@ -28,6 +28,16 @@ def test_sentence_split_respects_decimals():
     assert len(doc.sentences) == 2
 
 
+def test_a_figure_on_its_own_line_is_not_a_sentence():
+    """Regression: a markdown image was read as a three-word sentence and
+    refused by the floor, so illustrating a document cost hits it had not
+    earned. An image inside a sentence is still part of that sentence."""
+    figure = "![](assets/refinery.svg)\n\nA sentence long enough to clear it."
+    assert analyze("x.md", figure, FLOOR).counts()["runt"] == 0
+    inline = "The shape of it ![](a.svg) is the point of the whole figure."
+    assert len(Document(inline).sentences) == 1
+
+
 def test_offsets_point_at_source():
     text = "We delve into it."
     hit = run_checks(Document(text))[0]
