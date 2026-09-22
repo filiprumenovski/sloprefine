@@ -1161,3 +1161,46 @@ def test_canonical_antithesis_is_caught_by_the_negation_rule():
     belongs to `negation`, not to the structural detector."""
     assert analyze("x.txt", "This isn't a modification, it's a language.",
                    CFG).counts()["negation"] == 1
+
+
+# ------------------------------------------- v1.1: a recorded negative result
+
+from slopcheck import align
+
+
+def test_local_alignment_does_not_separate_parallel_from_ordinary():
+    """align.py is not wired into the checks, and this test is why.
+
+    Smith-Waterman on token classes looks like the right tool for the
+    carrier-stem and trailing-tail problems that parallel.py handles with
+    special cases. Measured, the score distributions overlap with no usable
+    threshold. If someone improves the scoring, this test fails and that is
+    the signal to wire it in."""
+    def classes(text):
+        return [parallel._class(w) for w in Document(text).words]
+
+    parallel_pairs = [("That isn't what's there", "it isn't a close call"),
+                      ("One stretch that carries a cluster",
+                       "one stretch on the same protein")]
+    ordinary_pairs = [("The gel ran slowly", "the room stayed cold all afternoon"),
+                      ("It worked", "So we ran it the other way")]
+
+    worst_parallel = min(align.align(classes(a), classes(b)).normalized
+                         for a, b in parallel_pairs)
+    best_ordinary = max(align.align(classes(a), classes(b)).normalized
+                        for a, b in ordinary_pairs)
+    assert worst_parallel < best_ordinary, (
+        "alignment now separates the classes; wire it into parallel.py")
+
+
+def test_sentence_splitting_is_linear():
+    """Regression: the abbreviation guard sliced the whole prefix on every
+    boundary, which made Document() quadratic and cost 11 of the 12 seconds
+    spent analysing a 20k-word file."""
+    import time
+    unit = (CORPUS / "clean_control.txt").read_text()
+    small, large = unit * 10, unit * 80
+    t0 = time.perf_counter(); Document(small); t_small = time.perf_counter() - t0
+    t0 = time.perf_counter(); Document(large); t_large = time.perf_counter() - t0
+    # 8x the input must not cost more than ~24x the time
+    assert t_large < max(t_small * 24, 0.5)

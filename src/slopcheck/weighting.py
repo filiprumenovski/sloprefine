@@ -66,9 +66,17 @@ def worst_paragraphs(doc: Document, hits: list[Hit], limit: int = 3
     than a 40-word paragraph with three, and ranking by raw count would send a
     reviser to the long one.
     """
+    ordered = sorted(hits, key=lambda h: h.start)
     scored: list[ParagraphScore] = []
+    cursor = 0
     for i, para in enumerate(doc.paragraphs, start=1):
-        inside = [h for h in hits if para.start <= h.start < para.end]
+        while cursor < len(ordered) and ordered[cursor].start < para.start:
+            cursor += 1
+        end = cursor
+        while end < len(ordered) and ordered[end].start < para.end:
+            end += 1
+        inside = ordered[cursor:end]
+        cursor = end
         if not inside:
             continue
         words = len(para) or 1

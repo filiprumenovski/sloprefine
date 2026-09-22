@@ -65,9 +65,15 @@ class Closer:
 def closers(doc: Document) -> list[Closer]:
     """Paragraphs whose final sentence is short."""
     out: list[Closer] = []
+    sentences, i = doc.sentences, 0
     for para in doc.paragraphs:
-        inside = [s for s in doc.sentences
-                  if s.start >= para.start and s.end <= para.end]
+        while i < len(sentences) and sentences[i].start < para.start:
+            i += 1
+        j = i
+        while j < len(sentences) and sentences[j].end <= para.end:
+            j += 1
+        inside = sentences[i:j]
+        i = j
         if len(inside) < 2:
             # A one-sentence paragraph is a heading, a caption or a beat by
             # construction. Charging it as a closer would flag every list.

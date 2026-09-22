@@ -25,6 +25,7 @@ __all__ = [
     "Stylometry",
     "Voiceprint",
     "agent",
+    "align",
     "analyze",
     "audit",
     "cadence",
