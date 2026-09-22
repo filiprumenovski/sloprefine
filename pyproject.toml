@@ -23,9 +23,11 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
 lm = ["transformers>=4.40", "torch>=2.0"]
+mcp = ["mcp>=2.0"]
 
 [project.scripts]
 slopcheck = "slopcheck.cli:main"
+slopcheck-mcp = "slopcheck.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/slopcheck"]

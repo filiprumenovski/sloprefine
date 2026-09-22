@@ -287,6 +287,35 @@ cross-perplexity ratio reaches over 90% TPR at 0.01% FPR; its own authors ship
 a fixed threshold and still caution against unsupervised use. Use their
 implementation if you want detection. This is a writing tool.
 
+## MCP server
+
+```bash
+pip install "slopcheck[mcp]"
+slopcheck-mcp
+```
+
+```json
+{"mcpServers": {"slopcheck": {"command": "slopcheck-mcp"}}}
+```
+
+Four tools: `check` returns PASS or the grouped fixes, `drift` compares two
+revisions and says whether the edit helped, `contract` returns the constraints
+to follow before writing, and `metrics` returns the numbers for tracking a
+draft over time.
+
+Three choices worth knowing. Text is the primary input rather than a path,
+because a model revising its own output has the draft in context and no file
+on disk. `check` returns the compact agent format, roughly a fifth the tokens
+of the JSON, since a tool that returns 8 kB of metrics spends the caller's
+context on numbers it will not act on. And the round budget travels with the
+result, because the failure mode of a linter in a loop is a model revising
+until the count reaches zero.
+
+The server ignores any `.slopcheck.toml` in its working directory. An agent
+host launches it from an arbitrary cwd, and picking up a config from there
+would make the same text score differently for invisible reasons. Pass
+`config_path` to use one.
+
 ## Configuration
 
 `.slopcheck.toml`, searched upward from the working directory:

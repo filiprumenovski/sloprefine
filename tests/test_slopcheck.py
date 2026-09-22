@@ -1556,3 +1556,81 @@ def test_talk_profile_enables_the_person_rule():
     tuned = punch_mod.apply("talk", replace(Config()))
     assert tuned.person_budget_per_1k == 1.0
     assert "person" in punch_mod.PROFILES["talk"].pins
+
+
+# --------------------------------------------------------- v1.5: MCP server
+
+mcp_server = pytest.importorskip(
+    "slopcheck.mcp_server",
+    reason='needs the optional extra: pip install "slopcheck[mcp]"')
+
+
+def test_mcp_tools_are_registered():
+    import asyncio
+    tools = asyncio.run(mcp_server.server.list_tools())
+    assert {t.name for t in tools} == {"check", "drift", "contract", "metrics"}
+
+
+def test_mcp_check_accepts_text_not_just_paths():
+    """A model revising its own output has the draft in context and no file
+    on disk, so text is the primary input."""
+    out = mcp_server.check(text="We delve into the intricate realm of it.")
+    assert out.startswith("FAIL")
+    assert mcp_server.check(text=(CORPUS / "clean_control.txt").read_text()
+                            ).startswith("PASS")
+
+
+def test_mcp_check_reports_the_round_budget():
+    """The failure mode of a linter in a loop is revising until the count
+    hits zero, so the stop condition travels with the result."""
+    text = "One gene. One site. No motif. " + (CORPUS / "clean_control.txt").read_text()
+    early = mcp_server.check(text=text, profile="talk", round_number=1)
+    late = mcp_server.check(text=text, profile="talk", round_number=agent.MAX_ROUNDS)
+    assert "rounds left" in early
+    assert "round limit reached" in late
+
+
+def test_mcp_check_requires_an_input():
+    with pytest.raises(ValueError, match="text or path"):
+        mcp_server.check()
+
+
+def test_mcp_profile_reaches_the_checks():
+    """Regression guard on the bug that made --profile a no-op in the CLI."""
+    text = "One gene. " + (CORPUS / "clean_control.txt").read_text()
+    assert "[runt]" not in mcp_server.check(text=text)
+    assert "[runt]" in mcp_server.check(text=text, profile="talk")
+
+
+def test_mcp_drift_returns_a_verdict():
+    out = mcp_server.drift(before="No order. No motif. No structure.",
+                           after="There was no order to it, and no motif "
+                                 "that we could find anywhere in the set.")
+    assert out.split()[0] in {"IMPROVED", "TRADED", "CHURNED", "OVERFIT", "CHOPPY"}
+
+
+def test_mcp_contract_differs_by_audience():
+    assert mcp_server.contract(audience="expert") != mcp_server.contract(
+        audience="general")
+
+
+def test_mcp_tool_descriptions_state_the_limitation():
+    """The description is the only place the calling model learns that half
+    these rules failed their own audit. Overselling here makes the model
+    trust the number more than the prose."""
+    import asyncio
+    tools = {t.name: t.description for t in
+             asyncio.run(mcp_server.server.list_tools())}
+    assert "not an instruction to obey" in mcp_server.server.instructions
+    assert "MORE on human writing" in mcp_server.server.instructions
+    assert "Do not revise past a PASS" in tools["check"]
+
+
+def test_mcp_ignores_ambient_config():
+    """An MCP server is launched from an arbitrary cwd by the agent host.
+    Picking up a .slopcheck.toml from there makes the same text score
+    differently for reasons the caller cannot see."""
+    text = "One gene. " + (CORPUS / "clean_control.txt").read_text()
+    # this repo's own config enables the sentence floor; the server must not
+    assert "[runt]" not in mcp_server.check(text=text)
+    assert "[runt]" in mcp_server.check(text=text, profile="talk")
