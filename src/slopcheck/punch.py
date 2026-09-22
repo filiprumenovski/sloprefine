@@ -175,9 +175,10 @@ PROFILES: dict[str, Profile] = {
             "closer_budget_ratio": 0.10,
             "min_sentence_words": 5,
             "max_choppiness": 0.12,
+            "person_budget_per_1k": 1.0,
         },
         pins={"fragments": 5.0, "doublet": 5.0, "parallel": 5.0,
-              "runt": 4.0, "closer": 4.0, "opener": 3.0},
+              "runt": 4.0, "closer": 4.0, "opener": 3.0, "person": 3.0},
     ),
     "essay": Profile(
         name="essay",

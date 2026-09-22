@@ -317,6 +317,7 @@ def _cmd_check(args) -> int:
         audience=args.audience or config.audience,
         calibration=calibration,
         doublet_budget_per_1k=config.doublet_budget_per_1k,
+        person_budget_per_1k=config.person_budget_per_1k,
     )
 
     # Applied LAST, over the finished config. Applying it earlier meant the

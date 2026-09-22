@@ -280,6 +280,18 @@ _rule(
 )
 
 _rule(
+    id="person",
+    title="generic second person",
+    citation="[local]",
+    severity="medium",
+    why="'You' standing in for 'one' or 'we'. It puts the audience inside a "
+        "procedure they did not run, and in a talk about your own work it "
+        "hands that work away. Real address to the room is not flagged.",
+    fix="Say who did it. Use we or our for work you did, or rewrite the "
+        "clause impersonally.",
+)
+
+_rule(
     id="runt",
     title="sentence under the floor",
     citation="[FB][local]",

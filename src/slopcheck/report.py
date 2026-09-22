@@ -34,6 +34,7 @@ class Config:
     closer_budget_ratio: float = 0.25
     doublet_budget_per_1k: float = 2.0
     vague_min_words: int = 40
+    person_budget_per_1k: float | None = None  # None disables
     max_choppiness: float | None = None
     max_hits: int | None = None
     max_per_1k: float | None = None
@@ -72,6 +73,7 @@ class Config:
             closer_budget_ratio=data.get("closer_budget_ratio", 0.25),
             doublet_budget_per_1k=data.get("doublet_budget_per_1k", 2.0),
             vague_min_words=data.get("vague_min_words", 40),
+            person_budget_per_1k=data.get("person_budget_per_1k"),
             allow_runts=frozenset(data.get("allow_runts", [])),
             skip_code_blocks=data.get("skip_code_blocks", True),
             voice_path=data.get("voice"),
@@ -138,6 +140,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         closer_budget_ratio=config.closer_budget_ratio,
         doublet_budget_per_1k=config.doublet_budget_per_1k,
         vague_min_words=config.vague_min_words,
+        person_budget_per_1k=config.person_budget_per_1k,
     )
     style = stylometry_mod.compute(doc)
     deviations, notes = {}, []

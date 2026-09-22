@@ -1498,3 +1498,61 @@ def test_doublet_budget_forgives_the_mildest_pair():
             if h.rule_id == "doublet"]
     assert len(hits) == 1
     assert "negated pair" in hits[0].note
+
+
+# ------------------------------------------- v1.5: generic vs addressed you
+
+from slopcheck import person as person_mod
+
+PERSON = Config(person_budget_per_1k=0.0)
+
+
+@pytest.mark.parametrize("text", [
+    "You find a site on a protein and mutate the serine to alanine.",
+    "Throw out half the proteins and you're still above three fold.",
+    "That changes how you'd validate a target in the first place.",
+])
+def test_generic_you_is_flagged(text):
+    """"You" standing in for "one" or "we", putting the audience inside a
+    procedure they did not run."""
+    assert analyze("x.txt", text, PERSON).counts()["person"] == 1
+
+
+@pytest.mark.parametrize("text", [
+    "I would genuinely like you to try to break it.",
+    "Today I want to show you one piece of that work.",
+    "Does the makeup of a protein tell you where the clusters fall?",
+    "Let me show you the null we lose the most ground against.",
+])
+def test_real_address_is_not_flagged(text):
+    """A speaker talking to the room. The presence of a first-person
+    singular, a question, or an appeal opening marks it."""
+    assert analyze("x.txt", text, PERSON).counts()["person"] == 0
+
+
+def test_thank_you_is_a_fixed_phrase():
+    """Regression: without this the closing line of every talk is a hit."""
+    assert analyze("x.txt", "Thank you.", PERSON).counts()["person"] == 0
+    assert analyze("x.txt", "Last thing, and it starts with a thank you.",
+                   PERSON).counts()["person"] == 0
+
+
+def test_person_rule_is_off_by_default():
+    """A register preference with no citation, like the sentence floor."""
+    text = "You find a site and mutate the serine to alanine."
+    assert analyze("x.txt", text, CFG).counts()["person"] == 0
+    assert analyze("x.txt", text, PERSON).counts()["person"] == 1
+
+
+def test_person_mix_counts_both_kinds():
+    doc = Document("We ran it again. You find a site. I would like you to try.")
+    mix = person_mod.compute(doc)
+    assert mix.first_plural == 1
+    assert mix.second_generic == 1 and mix.second_address == 1
+
+
+def test_talk_profile_enables_the_person_rule():
+    from dataclasses import replace
+    tuned = punch_mod.apply("talk", replace(Config()))
+    assert tuned.person_budget_per_1k == 1.0
+    assert "person" in punch_mod.PROFILES["talk"].pins

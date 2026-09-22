@@ -34,6 +34,7 @@ __all__ = [
     "drift",
     "paragraph",
     "parallel",
+    "person",
     "punch",
     "reader",
     "render_json",

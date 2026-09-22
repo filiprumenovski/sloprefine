@@ -143,6 +143,7 @@ def run_checks(
     closer_budget_ratio: float = 0.25,
     doublet_budget_per_1k: float = 2.0,
     vague_min_words: int = 40,
+    person_budget_per_1k: float | None = None,
 ) -> list[Hit]:
     hits: list[Hit] = []
     for rule_id, fn in CHECKS.items():
@@ -158,6 +159,8 @@ def run_checks(
             hits += check_doublet(doc, doublet_budget_per_1k)
         elif rule_id == "closer":
             hits += check_closer(doc, closer_budget_ratio)
+        elif rule_id == "person":
+            hits += check_person(doc, person_budget_per_1k)
         elif rule_id == "vague":
             hits += check_vague(doc, vague_min_words)
         else:
@@ -337,6 +340,22 @@ def check_doublet(doc: Document, budget_per_1k: float = 2.0) -> list[Hit]:
 CHECKS["doublet"] = check_doublet
 CHECKS["closer"] = check_closer
 CHECKS["vague"] = check_vague
+def check_person(doc: Document, budget_per_1k: float = 0.0) -> list[Hit]:
+    """Generic second person beyond the allowance. Off unless a budget is set."""
+    from .person import generic_spans
+
+    if budget_per_1k is None:
+        return []
+    found = generic_spans(doc)
+    allowance = int(doc.word_count / 1000 * budget_per_1k)
+    return [
+        Hit("person", s.start, s.end, s.text[:70],
+            f"generic 'you', budget {budget_per_1k}/1k")
+        for s in found[allowance:]
+    ]
+
+
+CHECKS["person"] = check_person
 CHECKS["runt"] = check_runt
 CHECKS["fromto"] = lambda d: _regex_check(d, "fromto")
 CHECKS["opener"] = check_opener
