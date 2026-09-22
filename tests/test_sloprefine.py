@@ -443,11 +443,31 @@ def test_style_contract_takes_the_profile_that_will_judge_it():
     the prompt parser rejected --profile, so the documented way to constrain
     generation exited 2. CI only ever ran prompt bare."""
     talk = agent.style_contract(profile="talk")
-    assert "Judged as talk" in talk
+    assert "This draft will be judged as talk" in talk
     # the numbers, not the profile name: a model cannot act on "talk"
     assert "under 5 words" in talk and "12%" in talk
-    assert "Judged as" not in agent.style_contract()
+    assert "will be judged as" not in agent.style_contract()
     assert agent.style_contract(profile="essay") != talk
+
+
+def test_the_contract_does_not_demonstrate_what_it_forbids():
+    """The profile block opened "Judged as talk. Spoken delivery." Two short
+    fragments back to back, at the top of a contract whose job is to stop
+    exactly that, in front of a model that learns from what it is shown. All
+    three profile rationales opened on a fragment; two were under the floor.
+
+    Scoped to the prose and to the cadence rules it can honestly satisfy. The
+    bullets below it are a spec, and a spec is parallel on purpose, so this
+    does not chase the count to zero on a list."""
+    from sloprefine.punch import PROFILES
+    for name in PROFILES:
+        contract = agent.style_contract(profile=name)
+        prose = next(line for line in contract.splitlines()
+                     if line.startswith("This draft will be judged as"))
+        counts = analyze("c.txt", prose, Config(min_sentence_words=5)).counts()
+        assert counts["runt"] == 0, (name, prose)
+        assert counts["doublet"] == 0, (name, prose)
+        assert counts["fragments"] == 0, (name, prose)
 
 
 def test_style_contract_includes_voice_targets():

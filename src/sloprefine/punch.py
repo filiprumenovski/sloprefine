@@ -165,10 +165,14 @@ class Profile:
 PROFILES: dict[str, Profile] = {
     "talk": Profile(
         name="talk",
-        why=("Spoken delivery. The cadence rules are pinned to their maximum "
-             "weight regardless of what a calibration measured, because the "
-             "only human label this package has is a domain expert calling "
-             "exactly this register machine-sounding in a conference talk."),
+        # Opens on a clause, not a two-word fragment. This text is emitted
+        # into the generation contract, where a fragment demonstrates the
+        # cadence the profile exists to suppress.
+        why=("The register is spoken delivery, so the cadence rules are "
+             "pinned to their maximum weight regardless of what a "
+             "calibration measured, because the only human label this "
+             "package has is a domain expert calling exactly this register "
+             "machine-sounding in a conference talk."),
         settings={
             "doublet_budget_per_1k": 0.0,
             "parallel_budget_per_1k": 0.0,
@@ -182,8 +186,9 @@ PROFILES: dict[str, Profile] = {
     ),
     "essay": Profile(
         name="essay",
-        why="Written prose for a reader who can re-read. Cadence matters less "
-            "than specificity, so the requirement rules lead.",
+        why="The register is written prose for a reader who can re-read, so "
+            "cadence matters less than specificity and the requirement "
+            "rules lead.",
         settings={
             "doublet_budget_per_1k": 2.0,
             "parallel_budget_per_1k": 1.0,
@@ -194,8 +199,8 @@ PROFILES: dict[str, Profile] = {
     ),
     "docs": Profile(
         name="docs",
-        why="Technical documentation. Enumerating things is the job, so the "
-            "parallelism budget is loose and the floor is off.",
+        why="The register is technical documentation, where enumerating "
+            "things is the job, so the parallelism budget is loose and the floor is off.",
         settings={
             "doublet_budget_per_1k": 3.0,
             "parallel_budget_per_1k": 3.0,
