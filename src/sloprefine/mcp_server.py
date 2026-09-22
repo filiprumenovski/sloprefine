@@ -207,7 +207,41 @@ def metrics(text: str = "", path: str = "", profile: Profile | None = None,
 
 
 def main() -> None:
-    server.run()
+    """stdio by default, HTTP on request.
+
+    stdio is a subprocess the host launches on the same machine, which is why
+    a remote client cannot see this server no matter how its config is
+    written. HTTP transport makes it reachable, and that is a different
+    security posture: prose is then arriving over a socket rather than being
+    read from a file the caller already had.
+
+    Binds loopback unless told otherwise. `--host 0.0.0.0` is a deliberate act
+    of exposing an unauthenticated endpoint that accepts other people's
+    writing, so it should be typed rather than defaulted into.
+    """
+    import argparse
+    import os
+
+    p = argparse.ArgumentParser(
+        prog="sloprefine-mcp",
+        description="MCP server for sloprefine. Defaults to stdio, which is "
+                    "what a local agent host launches.")
+    p.add_argument("--transport", default="stdio",
+                   choices=("stdio", "sse", "streamable-http"),
+                   help="stdio (default) for a local host; streamable-http to "
+                        "serve a remote client")
+    p.add_argument("--host", default="127.0.0.1",
+                   help="HTTP transports only. Loopback by default; "
+                        "0.0.0.0 exposes it to your network (default: "
+                        "%(default)s)")
+    p.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")),
+                   help="HTTP transports only (default: $PORT or 8000)")
+    args = p.parse_args()
+
+    if args.transport == "stdio":
+        server.run()
+        return
+    server.run(transport=args.transport, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":  # pragma: no cover

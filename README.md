@@ -411,6 +411,14 @@ context on numbers it will not act on. And the round budget travels with the
 result, because the failure mode of a linter in a loop is a model revising
 until the count reaches zero.
 
+`sloprefine-mcp --transport streamable-http` serves a remote client instead.
+A stdio server is a subprocess on the same machine, so no amount of config
+makes one visible to a client running anywhere else. The HTTP bind is
+`127.0.0.1` unless you pass `--host`, because `0.0.0.0` stands up an
+unauthenticated endpoint that accepts other people's prose and that is worth
+typing out rather than inheriting. Put authentication in front of it before it
+leaves your machine.
+
 The server ignores any `.sloprefine.toml` in its working directory. An agent
 host launches it from an arbitrary cwd, and picking up a config from there
 would make the same text score differently for invisible reasons. Pass

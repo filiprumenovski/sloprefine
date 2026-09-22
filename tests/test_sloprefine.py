@@ -1685,6 +1685,30 @@ def test_mcp_tool_descriptions_state_the_limitation():
 
 
 @needs_mcp
+def test_mcp_transport_defaults_to_stdio_on_loopback(monkeypatch):
+    """stdio is what a local agent host launches, so it stays the default and
+    a remote client cannot reach this server by configuration alone.
+
+    The HTTP bind defaults to loopback. 0.0.0.0 stands up an unauthenticated
+    endpoint that accepts other people's prose, and that should be typed out
+    rather than inherited from a default."""
+    calls = []
+    monkeypatch.setattr(mcp_server.server, "run",
+                        lambda *a, **k: calls.append((a, k)))
+
+    monkeypatch.setattr("sys.argv", ["sloprefine-mcp"])
+    mcp_server.main()
+    assert calls == [((), {})], "default must be a bare stdio run"
+
+    calls.clear()
+    monkeypatch.setattr("sys.argv",
+                        ["sloprefine-mcp", "--transport", "streamable-http"])
+    mcp_server.main()
+    assert calls[0][1]["transport"] == "streamable-http"
+    assert calls[0][1]["host"] == "127.0.0.1", "must not default to 0.0.0.0"
+
+
+@needs_mcp
 def test_mcp_ignores_ambient_config():
     """An MCP server is launched from an arbitrary cwd by the agent host.
     Picking up a .sloprefine.toml from there makes the same text score
