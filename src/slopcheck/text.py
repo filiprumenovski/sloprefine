@@ -109,12 +109,16 @@ def suppressed_ranges(text: str, skip_code: bool = False) -> list[tuple[int, int
 
 
 _HEADING = re.compile(r"^#{1,6} .*$", re.MULTILINE)
+# List markers are not sentences. "1." at the start of a line was being
+# split off as a zero-word sentence and then refused by the floor rule.
+_LIST_MARKER = re.compile(r"^[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]+", re.MULTILINE)
 
 
 def markdown_furniture(text: str) -> list[tuple[int, int]]:
     """Headings are not prose. They must not be read as sentences, or a
     heading after two short lines invents a fragment stack that isn't there."""
-    return [(m.start(), m.end()) for m in _HEADING.finditer(text)]
+    return ([(m.start(), m.end()) for m in _HEADING.finditer(text)]
+            + [(m.start(), m.end()) for m in _LIST_MARKER.finditer(text)])
 
 
 def mask(text: str, ranges: list[tuple[int, int]]) -> str:

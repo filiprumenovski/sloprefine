@@ -30,7 +30,10 @@ short_share    fraction of WORDS living in sentences of <= 7 words. Word-
 verbless_share fraction of sentences with no detectable finite verb. This is
                the distinction that matters for delivery: "It worked." is a
                short sentence, "One gene." is a fragment. Heuristic, no POS
-               tagger; see _has_finite_verb.
+               tagger; see _has_finite_verb. Two known misses: a bare past participle
+               ("Matched null.") passes the verb test, and a third-person
+               singular verb outside FINITE_FORMS fails it. Use
+               --strict-runts when the floor must be absolute.
 run_mass       fraction of words inside runs of >= 3 consecutive short
                sentences, which is what the rule layer catches.
 
@@ -74,12 +77,43 @@ CHOPPY_THRESHOLD = 0.17
 # over a whole document but would not be for a per-sentence verdict.
 FINITE_FORMS = frozenset(["is", "are", "was", "were", "be", "been", "being", "am", "do", "does", "did", "done", "have", "has", "had", "having", "can", "could", "will", "would", "shall", "should", "may", "might", "must", "get", "gets", "got", "go", "goes", "went", "come", "comes", "came", "make", "makes", "made", "take", "takes", "took", "see", "sees", "saw", "know", "knows", "knew", "think", "thinks", "thought", "say", "says", "said", "work", "works", "worked", "run", "runs", "ran", "sit", "sits", "sat", "find", "finds", "found", "give", "gives", "gave"])
 
-_VERBISH = re.compile(r"\w+(?:ed|ing|s)$")
+FINITE_FORMS = FINITE_FORMS | frozenset([
+    "fit", "fits", "hold", "holds", "held", "stand", "stands", "stood",
+    "mean", "means", "meant", "keep", "keeps", "kept", "want", "wants",
+    "need", "needs", "seem", "seems", "turn", "turns", "put", "puts",
+    "let", "lets", "thank", "thanks", "look", "looks", "ask", "asks",
+    "tell", "tells", "show", "shows", "call", "calls", "try", "tries",
+    "read", "reads", "use", "uses", "map", "maps", "drop", "drops",
+])
+
+# "doesn't" and "hasn't" carry finite verbs. Without expansion the floor rule
+# refused "OGT doesn't fit." as a fragment, which it plainly is not.
+_CONTRACTIONS = {
+    "n't": "", "'s": "is", "'re": "are", "'ve": "have",
+    "'ll": "will", "'d": "would", "'m": "am",
+}
+
+
+def _expand(word: str) -> list[str]:
+    w = word.lower().replace("\u2019", "'")
+    forms = [w]
+    for suffix, expansion in _CONTRACTIONS.items():
+        if w.endswith(suffix) and len(w) > len(suffix):
+            forms.append(w[: -len(suffix)])
+            if expansion:
+                forms.append(expansion)
+    return forms
+
+
+# No bare -s: it read "Same proteins." and "Thousands of substrates."
+# as verbed sentences, which is exactly backwards for fragment
+# detection. Third-person singulars are covered by FINITE_FORMS instead.
+_VERBISH = re.compile(r"\w+(?:ed|ing)$")
 _PLURAL_NOUNISH = re.compile(r"\w+(?:ss|us|is|ics|ness|tions?|ments?)$")
 
 
 def _has_finite_verb(span: Span) -> bool:
-    words = [w.lower() for w in span.words]
+    words = [form for w in span.words for form in _expand(w)]
     if any(w in FINITE_FORMS for w in words):
         return True
     for w in words:

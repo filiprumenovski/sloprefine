@@ -23,6 +23,9 @@ CONFIG_NAMES = (".slopcheck.toml", "slopcheck.toml")
 class Config:
     disabled: tuple[str, ...] = ()
     allow: frozenset[str] = frozenset()
+    min_sentence_words: int = 0  # 0 disables
+    runt_mode: str = "verbless"   # "verbless" | "all"
+    allow_runts: frozenset[str] = frozenset()
     max_choppiness: float | None = None
     max_hits: int | None = None
     max_per_1k: float | None = None
@@ -54,6 +57,9 @@ class Config:
             max_hits=data.get("max_hits"),
             max_per_1k=data.get("max_per_1k"),
             max_choppiness=data.get("max_choppiness"),
+            min_sentence_words=data.get("min_sentence_words", 0),
+            runt_mode=data.get("runt_mode", "verbless"),
+            allow_runts=frozenset(data.get("allow_runts", [])),
             skip_code_blocks=data.get("skip_code_blocks", True),
             voice_path=data.get("voice"),
             audience=data.get("audience"),
@@ -98,7 +104,11 @@ def analyze(path: str, text: str, config: Config) -> Result:
     if is_md:
         regions += markdown_furniture(text)
     doc = Document(mask(text, regions), path)
-    hits = run_checks(doc, disabled=config.disabled, allow=config.allow)
+    hits = run_checks(
+        doc, disabled=config.disabled, allow=config.allow,
+        floor=config.min_sentence_words, runt_mode=config.runt_mode,
+        allow_runts=config.allow_runts,
+    )
     style = stylometry_mod.compute(doc)
     deviations, notes = {}, []
     if config.voice is not None:

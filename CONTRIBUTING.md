@@ -47,7 +47,7 @@ current models is not a signal yet.
 
 ## Adding a stylometric feature
 
-Different bar. Features go in `stylometry.py` and must be computable with no
+The bar here is different. Features go in `stylometry.py` and must be computable with no
 language model, no API call, and no corpus-level statistics, so that a draft
 can be checked offline on a laptop and the number means the same thing
 tomorrow.

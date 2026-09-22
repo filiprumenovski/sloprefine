@@ -18,6 +18,8 @@ does not belong in this file; see CONTRIBUTING.md.
   [FB]   Forbes, "The Seven Tells Of AI Writing." TED-talk punchline cadence.
   [AE]   The Augmented Educator, "Ten Telltale Signs." The em dash, the
          "from X to Y" range template.
+  [local] No citation: a floor set by the user for their own writing. Kept
+         separate from the sourced rules so the distinction stays visible.
   [KUM23] Kumarage et al., arXiv:2303.03697. Stylometric detection: n-gram
          repetition, phraseology, punctuation families.
   [SLH26] Shan, Lee & Hao, arXiv:2608.27855 (2026). Stylometric footprint of
@@ -231,6 +233,18 @@ _rule(
     patterns=(
         r"\bfrom\s+[\w-]+(?:\s+[\w-]+){0,2}\s+to\s+[\w-]+(?:\s+[\w-]+){0,2}\b(?=[,.;])",
     ),
+)
+
+_rule(
+    id="runt",
+    title="sentence under the floor",
+    citation="[FB][local]",
+    severity="high",
+    why="A sentence too short to carry a clause. Default floor is 5 words, "
+        "and by default only verbless ones are refused: 'One gene.' is a "
+        "fragment, 'It worked.' is a sentence.",
+    fix="Fold it into the sentence beside it, or give it a subject and a "
+        "finite verb.",
 )
 
 _rule(

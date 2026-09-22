@@ -57,6 +57,12 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
                         '(needs pip install "slopcheck[lm]")')
     p.add_argument("--check-code-blocks", action="store_true",
                    help="do not exempt fenced code blocks in Markdown")
+    p.add_argument("--min-sentence", type=int, metavar="N",
+                   help="refuse sentences under N words. Off unless set here "
+                        "or in config; 5 is the usual setting")
+    p.add_argument("--strict-runts", action="store_true",
+                   help="refuse every sentence under the floor, not just the "
+                        "verbless ones ('It worked.' gets refused too)")
     p.add_argument("--max-choppiness", type=float, metavar="X",
                    help="exit 1 above this cadence score (0.17 is the "
                         "calibrated band; see cadence.py)")
@@ -256,6 +262,12 @@ def _cmd_check(args) -> int:
                     else config.max_per_1k),
         max_choppiness=(args.max_choppiness if args.max_choppiness is not None
                         else config.max_choppiness),
+        min_sentence_words=(
+            args.min_sentence if args.min_sentence is not None
+            else (5 if args.strict_runts and not config.min_sentence_words
+                  else config.min_sentence_words)),
+        runt_mode="all" if args.strict_runts else config.runt_mode,
+        allow_runts=config.allow_runts,
         skip_code_blocks=not args.check_code_blocks and config.skip_code_blocks,
         voice=voiceprint,
         z_threshold=args.z_threshold,

@@ -74,8 +74,9 @@ pip install -e ".[dev]"
 slopcheck draft.md
 ```
 
-Python 3.11+. No runtime dependencies. The optional `lm` extra pulls in
-`transformers` and `torch`, and nothing else needs them.
+This needs Python 3.11 or newer and has no runtime dependencies. The
+optional `lm` extra pulls in `transformers` and `torch`, and nothing else
+needs them.
 
 ## The three layers
 

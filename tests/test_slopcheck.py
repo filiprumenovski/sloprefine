@@ -742,3 +742,92 @@ def test_cadence_appears_in_the_report_and_the_agent_notes():
     assert result.cadence is not None
     assert "cadence" in render_text(result, color=False)
     assert any("staccato" in n for n in agent.review("x.txt", text, CFG).notes)
+
+
+# ---------------------------------------------------- v0.6: the sentence floor
+
+FLOOR = Config(min_sentence_words=5)
+FLOOR_STRICT = Config(min_sentence_words=5, runt_mode="all")
+
+
+def test_floor_is_off_unless_asked_for():
+    """The only rule with no citation, and it refuses a device human writers
+    use. corpus/clean_control.txt contains "Two weeks of that.", written to
+    read as natural human prose, and the floor refuses it."""
+    text = ("Two weeks of that. The control came back clean on every plate, "
+            "which ruled out the reagents and left me with a short list.")
+    assert analyze("x.txt", text, CFG).total == 0
+    assert analyze("x.txt", text, FLOOR).counts()["runt"] == 1
+
+
+def test_floor_refuses_fragments_but_keeps_short_sentences():
+    """The distinction the floor exists to make."""
+    hits = analyze("x.txt", "One gene. It worked. Same proteins.", FLOOR).hits
+    refused = {h.text for h in hits if h.rule_id == "runt"}
+    assert refused == {"One gene.", "Same proteins."}
+
+
+def test_strict_mode_refuses_everything_under_the_floor():
+    hits = analyze("x.txt", "One gene. It worked. Same proteins.", FLOOR_STRICT).hits
+    assert len({h.text for h in hits if h.rule_id == "runt"}) == 3
+
+
+def test_floor_respects_the_configured_width():
+    text = "Four words go here. " + "A much longer sentence sits beside it. " * 2
+    assert analyze("x.txt", text, Config(min_sentence_words=4,
+                                         runt_mode="all")).counts()["runt"] == 0
+    assert analyze("x.txt", text, Config(min_sentence_words=5,
+                                         runt_mode="all")).counts()["runt"] == 1
+
+
+def test_allow_runts_exempts_exact_strings():
+    cfg = Config(min_sentence_words=5, runt_mode="all",
+                 allow_runts=frozenset({"Thank you."}))
+    text = "Thank you. One gene. " + "A longer sentence to end on here. " * 2
+    refused = {h.text for h in analyze("x.txt", text, cfg).hits
+               if h.rule_id == "runt"}
+    assert refused == {"One gene."}
+
+
+def test_contractions_are_finite_verbs():
+    """Regression: the floor refused "OGT doesn't fit." as a fragment."""
+    for text in ("OGT doesn't fit.", "The address hasn't.", "I haven't found one."):
+        assert analyze("x.txt", text, FLOOR).counts()["runt"] == 0
+
+
+def test_plural_nouns_are_not_verbs():
+    """Regression: a bare -s test read "Same proteins." as a verbed sentence,
+    which is backwards for fragment detection."""
+    assert analyze("x.txt", "Same proteins.", FLOOR).counts()["runt"] == 1
+    assert analyze("x.txt", "Thousands of substrates.", FLOOR).counts()["runt"] == 1
+
+
+def test_known_miss_bare_past_participle():
+    """Documented limitation, not a passing behaviour: "Matched null." is a
+    fragment and the verb heuristic reads the participle as finite. Only
+    strict mode catches it."""
+    assert analyze("x.txt", "Matched null.", FLOOR).counts()["runt"] == 0
+    assert analyze("x.txt", "Matched null.", FLOOR_STRICT).counts()["runt"] == 1
+
+
+def test_markdown_list_markers_are_not_sentences():
+    """Regression: "1." at the start of a line was split off as a zero-word
+    sentence and then refused by the floor."""
+    md = ("An introductory line that runs long enough to clear the floor.\n\n"
+          "1. The first item also runs long enough to clear it.\n"
+          "2. The second item does the same thing here.\n")
+    result = analyze("x.md", md, FLOOR)
+    assert result.counts()["runt"] == 0
+    # the specific bug: markers parsed as zero-word sentences
+    assert not any(h.note.startswith("0w") for h in result.hits)
+
+
+def test_cli_min_sentence_flag(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    f = tmp_path / "a.txt"
+    f.write_text("One gene. " + "A sentence long enough to clear the floor. " * 2)
+    # the rule's title contains the word "floor", so assert on the hit note
+    main([str(f), "--no-color"])
+    assert "2w, floor 5" not in capsys.readouterr().out
+    main([str(f), "--min-sentence", "5", "--no-color"])
+    assert "2w, floor 5" in capsys.readouterr().out

@@ -10,6 +10,7 @@ from .text import WORD, Document
 
 FRAGMENT_MAX_WORDS = 7
 FRAGMENT_RUN = 3
+MIN_SENTENCE_WORDS = 0  # 0 disables the floor; 5 is the usual setting
 
 
 @dataclass(frozen=True)
@@ -145,12 +146,24 @@ CHECKS = {
 }
 
 
-def run_checks(doc: Document, disabled=(), allow=frozenset()) -> list[Hit]:
+def run_checks(
+    doc: Document,
+    disabled=(),
+    allow=frozenset(),
+    floor: int = MIN_SENTENCE_WORDS,
+    runt_mode: str = "verbless",
+    allow_runts: frozenset[str] = frozenset(),
+) -> list[Hit]:
     hits: list[Hit] = []
     for rule_id, fn in CHECKS.items():
         if rule_id in disabled:
             continue
-        hits += check_vocab(doc, allow) if rule_id == "vocab" else fn(doc)
+        if rule_id == "vocab":
+            hits += check_vocab(doc, allow)
+        elif rule_id == "runt":
+            hits += check_runt(doc, floor, runt_mode, allow_runts)
+        else:
+            hits += fn(doc)
     return sorted(hits, key=lambda h: h.start)
 
 
@@ -213,6 +226,37 @@ def check_template(doc: Document) -> list[Hit]:
     return hits
 
 
+def check_runt(
+    doc: Document,
+    floor: int = MIN_SENTENCE_WORDS,
+    mode: str = "verbless",
+    allow: frozenset[str] = frozenset(),
+) -> list[Hit]:
+    """Sentences below the floor.
+
+    mode="verbless" (default) refuses only those with no finite verb, because
+    the floor is a proxy for the thing that actually reads as a beat. "One
+    gene." and "Matched null." are fragments; "It worked." is a sentence that
+    happens to be two words long, and refusing it costs a real device.
+
+    mode="all" is the absolute floor: nothing under it survives.
+    """
+    from .cadence import _has_finite_verb
+
+    if floor < 2:
+        return []
+    hits = []
+    for span in doc.sentences:
+        if len(span) >= floor or span.text in allow:
+            continue
+        if mode == "verbless" and _has_finite_verb(span):
+            continue
+        hits.append(Hit("runt", span.start, span.end, span.text,
+                        f"{len(span)}w, floor {floor}"))
+    return hits
+
+
+CHECKS["runt"] = check_runt
 CHECKS["fromto"] = lambda d: _regex_check(d, "fromto")
 CHECKS["opener"] = check_opener
 CHECKS["template"] = check_template
