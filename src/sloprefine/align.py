@@ -9,7 +9,7 @@ without breaking what a reader hears:
 
     It was fast, cheap and reliable.
        ^^^^^^ stem on item one
-    serine, threonine and proline as the acceptors
+    nitrate, sulfate and chloride as the analytes
                                  ^^^^^^^^^^^^^^^^ tail on item three
 
 `parallel.py` handles both with special cases: trim the stem off the first
@@ -25,8 +25,9 @@ as a wildcard) makes it structural rather than lexical, so "for the data" and
 "for the model" align perfectly while "the buffer was cold" and "nobody had
 checked the timer" do not.
 
-This is the same algorithm as sequence alignment in a search engine, run over a
-four-letter alphabet of token classes instead of twenty of residues.
+This is the same algorithm as biological sequence alignment, run over a
+four-letter alphabet of token classes instead of the twenty-symbol one it was
+designed for.
 
 Result: measured, and it loses
 ------------------------------

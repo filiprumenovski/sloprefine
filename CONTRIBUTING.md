@@ -8,7 +8,8 @@ shipped into the revision loop and into `sloprefine prompt`. A test asserts
 every rule has one.
 
 Every rule also needs a source, meaning not a vibe but something someone put
-their name on: a study, a corpus analysis, or a written argument. Add the short key and full
+their name on: a study, published corpus statistics, or an argument someone
+wrote down and signed. Add the short key and full
 reference to the docstring at the top of `src/sloprefine/rules.py`, then declare
 the rule with `_rule(...)` and give it a `why` that a writer can act on.
 

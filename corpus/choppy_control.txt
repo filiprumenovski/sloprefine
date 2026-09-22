@@ -1,9 +1,9 @@
-Here is the thing about the result. It's wrong. And it isn't close.
+Here is the thing about the reading. It's wrong. And it isn't close.
 
-We ran it again. Same buffer. Same column. Same nothing.
+We ran the line again. Same probe. Same depth. Same nothing.
 
-So we looked harder. One gene. One site. Thousands of targets. No motif anywhere in the sequence.
+So we looked harder. One plot. One transect. Thousands of samples. No gradient anywhere in the record.
 
-The model is blunt. On purpose. It sees counts. Nothing else. No order, no spacing, no structure.
+The estimator is blunt. On purpose. It sees totals. Nothing else. No order, no spacing, no structure.
 
-It works anyway. Four times out of five. That's the paradox.
+It holds anyway. Four days out of five. That's the pattern.

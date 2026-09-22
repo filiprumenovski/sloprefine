@@ -2,7 +2,7 @@
 
 Two different "you"s
 --------------------
-    You find an O-GlcNAc site on a protein and mutate the serine.
+    You walk the transect at dawn and log every stem you pass.
     I would genuinely like you to try to break it.
 
 The first is generic. It means "one", or it means "we", and it puts the

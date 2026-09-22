@@ -7,7 +7,7 @@ allow = ["landscape", "robust"]
 # The sentence floor. Off by default in code because it is the one rule with
 # no citation behind it and it refuses a device human writers legitimately
 # use. Enabled here as this repository's own house policy.
-#   runt_mode = "verbless" refuses "One gene." but keeps "It worked."
+#   runt_mode = "verbless" refuses "One plot." but keeps "It worked."
 #   runt_mode = "all"      refuses everything under the floor
 # Parallelism runs allowed per 1000 words. Documentation enumerates things
 # for a living, so this repo's own prose runs higher than a talk would.

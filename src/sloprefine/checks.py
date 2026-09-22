@@ -241,7 +241,7 @@ def check_runt(
 
     mode="verbless" (default) refuses only those with no finite verb, because
     the floor is a proxy for the thing that actually reads as a beat. "One
-    gene." and "Matched null." are fragments; "It worked." is a sentence that
+    plot." and "Matched null." are fragments; "It worked." is a sentence that
     happens to be two words long, and refusing it costs a real device.
 
     mode="all" is the absolute floor: nothing under it survives.

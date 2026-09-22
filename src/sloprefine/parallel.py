@@ -5,9 +5,9 @@ Why the tricolon rule is not enough
 `rules.tricolon` bans two surface forms: "a, b, and c" of short items, and the
 same word opening three units. Both are one paraphrase from silent:
 
-    No order. No motif. No structure.          caught
-    No order. No motif. No structure. No spacing.   four items, silent
-    No sense of order. No motif to speak of. No structure at all.
+    No order. No gradient. No structure.          caught
+    No order. No gradient. No structure. No spacing.   four items, silent
+    No sense of order. No gradient to speak of. No structure at all.
                                                items too long, silent
     We trained on human. We tested on rice. We ran it backwards.
                                                clause-level, silent
@@ -116,8 +116,8 @@ def _normalize_carriers(
     """Trim the sentence stem off the first segment and the sentence tail off
     the last, so a list matches on its items rather than its frame.
 
-    "It was fast, cheap and reliable" has the stem on item one; "serine,
-    threonine and proline as the acceptors" has the tail on item three. Both
+    "It was fast, cheap and reliable" has the stem on item one; "nitrate,
+    sulfate and chloride as the analytes" has the tail on item three. Both
     read as three parallel items and neither matches on a full-span skeleton.
 
     This replaces an earlier approach that grew runs outward from a single
@@ -205,7 +205,7 @@ def _is_doublet(left: str, right: str) -> str | None:
     same_open = a[0].lower() == b[0].lower()
 
     # Signals are checked independently. Gating them all behind a shared
-    # content anchor missed "Same proteins. Same residue types.", where the
+    # content anchor missed "Same catchments. Same horizon types.", where the
     # repeated word is a stopword and IS the whole construction.
     if same_open and a[0].lower() not in _PRONOUN:
         return f"anaphora on '{a[0].lower()}'"

@@ -101,7 +101,7 @@ _rule(
         r"\bnot\s+(?:about|because of)\s+\w+[^.]{0,40},\s*(?:it'?s|but)\b",
         r"\bthis (?:is|was) not an?\b",
         r"\bit'?s not (?:a|an|the)\b[^.]{0,40}\bit'?s (?:a|an|the)\b",
-        # "This isn't a modification, it's a language."
+        # "This isn't a treatment, it's a language."
         (
             r"\b(?:isn'?t|aren'?t|wasn'?t|weren'?t)\s+(?:a|an|the)\b[^.]{0,50},"
             r"\s*(?:it'?s|they'?re|that'?s|it is)\b"
@@ -297,7 +297,7 @@ _rule(
     citation="[FB][local]",
     severity="high",
     why="A sentence too short to carry a clause. Default floor is 5 words, "
-        "and by default only verbless ones are refused: 'One gene.' is a "
+        "and by default only verbless ones are refused: 'One plot.' is a "
         "fragment, 'It worked.' is a sentence.",
     fix="Fold it into the sentence beside it, or give it a subject and a "
         "finite verb.",

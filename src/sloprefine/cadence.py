@@ -29,7 +29,7 @@ short_share    fraction of WORDS living in sentences of <= 7 words. Word-
                count says it is half normal prose.
 verbless_share fraction of sentences with no detectable finite verb. This is
                the distinction that matters for delivery: "It worked." is a
-               short sentence, "One gene." is a fragment. Heuristic, no POS
+               short sentence, "One plot." is a fragment. Heuristic, no POS
                tagger; see has_finite_verb. Two known misses: a bare past participle
                ("Matched null.") passes the verb test, and a third-person
                singular verb outside FINITE_FORMS fails it. Use
@@ -87,7 +87,7 @@ FINITE_FORMS = FINITE_FORMS | frozenset([
 ])
 
 # "doesn't" and "hasn't" carry finite verbs. Without expansion the floor rule
-# refused "OGT doesn't fit." as a fragment, which it plainly is not.
+# refused "Elevation doesn't fit." as a fragment, which it plainly is not.
 _CONTRACTIONS = {
     "n't": "", "'s": "is", "'re": "are", "'ve": "have",
     "'ll": "will", "'d": "would", "'m": "am",
@@ -105,7 +105,7 @@ def _expand(word: str) -> list[str]:
     return forms
 
 
-# No bare -s: it read "Same proteins." and "Thousands of substrates."
+# No bare -s: it read "Same catchments." and "Thousands of samples."
 # as verbed sentences, which is exactly backwards for fragment
 # detection. Third-person singulars are covered by FINITE_FORMS instead.
 _VERBISH = re.compile(r"\w+(?:ed|ing)$")

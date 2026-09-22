@@ -41,10 +41,10 @@ def test_offsets_point_at_source():
     ("It was pivotal.", "vocab"),
     ("A thought \u2014 interrupted.", "emdash"),
     ("This isn't just chemistry.", "negation"),
-    ("It's not about the enzyme, it's the substrate.", "negation"),
+    ("It's not about the sensor, it's the sample.", "negation"),
     ("Fast, cheap, and reliable.", "parallel"),   # subsumed: see _drop_subsumed_tricolons
-    ("No order. No motif. No structure.", "parallel"),
-    ("One gene. One site. Ten substrates. But scale matters here somehow.", "fragments"),
+    ("No order. No gradient. No structure.", "parallel"),
+    ("One plot. One transect. Ten samples. But scale matters here somehow.", "fragments"),
     ("Moreover, the data held.", "transitions"),
     ("Here's the thing: it worked.", "narrator"),
     ("The run failed, highlighting the need for care.", "participial"),
@@ -174,7 +174,7 @@ def test_readme_passes_its_own_linter():
 
 @pytest.mark.parametrize("text,rule", [
     ("From bustling cities to serene coastlines, it varies.", "fromto"),
-    ("Kinases read motifs. Kinases are the textbook case. Kinases cover it.", "opener"),
+    ("Loggers read gradients. Loggers are the textbook case. Loggers cover it.", "opener"),
 ])
 def test_v2_rule_fires(text, rule):
     assert rule in ids(text)
@@ -215,7 +215,7 @@ def test_mattr_is_length_robust_where_plain_ttr_is_not():
 
 
 def test_lexical_density_separates_content_from_function_words():
-    dense = "Kinases phosphorylate disordered substrate regions."
+    dense = "Loggers record disordered upland gradients."
     loose = "It is the one that is in the part of it that we have."
     assert (stylometry.compute(Document(dense)).lexical_density
             > stylometry.compute(Document(loose)).lexical_density + 0.3)
@@ -229,8 +229,8 @@ def test_entropy_is_normalized_not_raw_bits():
 
 
 @pytest.mark.parametrize("word,n", [
-    ("cat", 1), ("regional", 3), ("the", 1), ("substrate", 2), ("make", 1),
-    ("phosphorylation", 5), ("rhythm", 1),
+    ("cat", 1), ("regional", 3), ("the", 1), ("sample", 2), ("make", 1),
+    ("precipitation", 5), ("rhythm", 1),
 ])
 def test_syllable_heuristic(word, n):
     assert stylometry.syllables(word) == n
@@ -436,8 +436,8 @@ def test_style_contract_includes_voice_targets():
 
 # ---------------------------------------------------------------- v0.3: drift
 
-SLOPPY = "One gene. One site. Many targets. Moreover, it delves into the realm."
-CLEANED = ("A single gene with one catalytic site reaches many targets, which "
+SLOPPY = "One plot. One transect. Many stations. Moreover, it delves into the realm."
+CLEANED = ("A single plot with one upstream transect reaches many stations, which "
            "is the part nobody has explained yet.")
 
 
@@ -467,8 +467,8 @@ def test_density_drop_is_attributed_to_cadence_not_charged_twice():
     cost double-counts one change, and in practice it argued for putting the
     fragments back. When cadence moves, the density delta is a consequence of
     it and drift must say so rather than treat it as independent evidence."""
-    before = "No order. No motif. No structure. " * 3
-    after = ("There was not any order to it, and there was not a motif in it, "
+    before = "No order. No gradient. No structure. " * 3
+    after = ("There was not any order to it, and there was not a gradient in it, "
              "and there was not much of a structure to any of it at all, as "
              "far as we were able to tell from what we had in front of us. ")
     d = agent.drift(before, after, CFG)
@@ -481,9 +481,9 @@ def test_density_drop_is_attributed_to_cadence_not_charged_twice():
 def test_density_trade_still_fires_when_cadence_holds_still():
     """The trade verdict is not gone, it is scoped: it applies when the
     revision spent density WITHOUT changing cadence."""
-    before = "The classifier reads tile composition and reports cluster sites."
+    before = "The classifier reads quadrat composition and reports cluster boundaries."
     after = ("It is the case that the thing which reads what is in the tile "
-             "is the one that then goes on to say where it is that the sites "
+             "is the one that then goes on to say where it is that the transects "
              "of the clusters are to be found in it.")
     d = agent.drift(before, after, CFG)
     assert abs(d.choppiness_after - d.choppiness_before) < 0.02
@@ -545,9 +545,9 @@ def test_sentiment_proxy_abstains_when_evidence_is_thin():
     """Technical prose can run hundreds of words with no valence token. A
     variance computed from three matches is a number with nothing under it."""
     technical = Document(
-        "The classifier was trained on tile composition with no serine term. "
-        "Every prediction is made on a protein the model has never seen. "
-        "The acceptor position survives about a quarter of the time. " * 3
+        "The classifier was trained on quadrat composition with no nitrate term. "
+        "Every prediction is made on a catchment the model has never seen. "
+        "The analyte position survives about a quarter of the time. " * 3
     )
     s = reader.compute(technical, "expert")
     assert s.mean_sentiment is None and s.sentiment_variance is None
@@ -701,10 +701,10 @@ def test_choppiness_is_word_weighted_not_sentence_weighted():
 
 
 def test_verbless_share_separates_fragments_from_short_sentences():
-    """"It worked." is a short sentence. "One gene." is a fragment. The
+    """"It worked." is a short sentence. "One plot." is a fragment. The
     difference is what makes a beat land, and it is what the rule layer,
     which only counts words, cannot see."""
-    fragments = cadence.compute(Document("One gene. One site. No motif."))
+    fragments = cadence.compute(Document("One plot. One transect. No gradient."))
     shorties = cadence.compute(Document("It worked. She knew. They ran."))
     assert fragments.verbless_share > shorties.verbless_share
 
@@ -728,10 +728,10 @@ def test_drift_ranks_cadence_above_the_other_metrics():
     """The regression this module exists for: a revision that reintroduces
     the staccato cadence also raises lexical density and burstiness, and
     those gains must not be allowed to outvote the cadence."""
-    flowing = ("The enzyme has one gene and one catalytic site, and it reaches "
-               "thousands of substrates without a consensus sequence anywhere "
+    flowing = ("The sensor has one plot and one upstream transect, and it reaches "
+               "thousands of samples without a reference baseline anywhere "
                "in the set. ") * 3
-    chopped = "One gene. One site. Thousands of targets. No motif. " * 3
+    chopped = "One plot. One transect. Thousands of stations. No gradient. " * 3
     d = agent.drift(flowing, chopped, CFG)
     assert d.verdict == "choppy"
     assert d.density_after > d.density_before      # density REWARDS the artifact
@@ -764,13 +764,13 @@ def test_floor_is_off_unless_asked_for():
 
 def test_floor_refuses_fragments_but_keeps_short_sentences():
     """The distinction the floor exists to make."""
-    hits = analyze("x.txt", "One gene. It worked. Same proteins.", FLOOR).hits
+    hits = analyze("x.txt", "One plot. It worked. Same catchments.", FLOOR).hits
     refused = {h.text for h in hits if h.rule_id == "runt"}
-    assert refused == {"One gene.", "Same proteins."}
+    assert refused == {"One plot.", "Same catchments."}
 
 
 def test_strict_mode_refuses_everything_under_the_floor():
-    hits = analyze("x.txt", "One gene. It worked. Same proteins.", FLOOR_STRICT).hits
+    hits = analyze("x.txt", "One plot. It worked. Same catchments.", FLOOR_STRICT).hits
     assert len({h.text for h in hits if h.rule_id == "runt"}) == 3
 
 
@@ -785,23 +785,23 @@ def test_floor_respects_the_configured_width():
 def test_allow_runts_exempts_exact_strings():
     cfg = Config(min_sentence_words=5, runt_mode="all",
                  allow_runts=frozenset({"Thank you."}))
-    text = "Thank you. One gene. " + "A longer sentence to end on here. " * 2
+    text = "Thank you. One plot. " + "A longer sentence to end on here. " * 2
     refused = {h.text for h in analyze("x.txt", text, cfg).hits
                if h.rule_id == "runt"}
-    assert refused == {"One gene."}
+    assert refused == {"One plot."}
 
 
 def test_contractions_are_finite_verbs():
-    """Regression: the floor refused "OGT doesn't fit." as a fragment."""
-    for text in ("OGT doesn't fit.", "The address hasn't.", "I haven't found one."):
+    """Regression: the floor refused "Elevation doesn't fit." as a fragment."""
+    for text in ("Elevation doesn't fit.", "The address hasn't.", "I haven't found one."):
         assert analyze("x.txt", text, FLOOR).counts()["runt"] == 0
 
 
 def test_plural_nouns_are_not_verbs():
-    """Regression: a bare -s test read "Same proteins." as a verbed sentence,
+    """Regression: a bare -s test read "Same catchments." as a verbed sentence,
     which is backwards for fragment detection."""
-    assert analyze("x.txt", "Same proteins.", FLOOR).counts()["runt"] == 1
-    assert analyze("x.txt", "Thousands of substrates.", FLOOR).counts()["runt"] == 1
+    assert analyze("x.txt", "Same catchments.", FLOOR).counts()["runt"] == 1
+    assert analyze("x.txt", "Thousands of samples.", FLOOR).counts()["runt"] == 1
 
 
 def test_known_miss_bare_past_participle():
@@ -827,7 +827,7 @@ def test_markdown_list_markers_are_not_sentences():
 def test_cli_min_sentence_flag(tmp_path, capsys, monkeypatch):
     monkeypatch.chdir(tmp_path)
     f = tmp_path / "a.txt"
-    f.write_text("One gene. " + "A sentence long enough to clear the floor. " * 2)
+    f.write_text("One plot. " + "A sentence long enough to clear the floor. " * 2)
     # the rule's title contains the word "floor", so assert on the hit note
     main([str(f), "--no-color"])
     assert "2w, floor 5" not in capsys.readouterr().out
@@ -851,7 +851,7 @@ FILLER = " ".join([
     "Two weeks went by before the obvious explanation surfaced.",
     "I still have not gone back to check the original number.",
     "The gel ran slowly and the room stayed cold all afternoon.",
-    "Somebody adapted this from a paper about a different enzyme.",
+    "Somebody adapted this from a paper about a different sensor.",
 ] * 5)
 
 
@@ -863,15 +863,15 @@ def _runs(text):
 @pytest.mark.parametrize("text,arity", [
     ("It was fast, cheap and reliable.", 3),               # no Oxford comma
     ("It was fast, cheap, and reliable.", 3),
-    ("We used serine, threonine and proline as the acceptors.", 3),  # trailing tail
-    ("No order. No motif. No structure.", 3),
-    ("No order. No motif. No structure. No spacing.", 4),  # tetracolon escape
-    ("No sense of order here. No motif to speak of. No structure at all.", 3),
+    ("We used nitrate, sulfate and chloride as the analytes.", 3),  # trailing tail
+    ("No order. No gradient. No structure.", 3),
+    ("No order. No gradient. No structure. No spacing.", 4),  # tetracolon escape
+    ("No sense of order here. No gradient to speak of. No structure at all.", 3),
     ("We trained on human. We tested on rice. We ran it backwards.", 3),
 ])
 def test_parallelism_is_arity_independent(text, arity):
     """Banning three items moves a generator to four. The shape is the
-    target, so the run length is reported rather than required."""
+    station, so the run length is reported rather than required."""
     runs = _runs(text)
     assert runs and max(r.arity for r in runs) == arity
 
@@ -890,7 +890,7 @@ def test_parallelism_leaves_ordinary_prose_alone(text):
 def test_padding_one_item_does_not_defeat_the_match():
     """Length bucketing is coarse on purpose. With exact matching, adding a
     word to the third item breaks the run and the check goes silent."""
-    assert _runs("One gene. One catalytic site. One single solitary site.")
+    assert _runs("One plot. One upstream transect. One single solitary transect.")
 
 
 def test_clean_control_has_no_parallel_runs():
@@ -911,7 +911,7 @@ def test_budget_forgives_the_mildest_run_not_the_worst():
 
     This test previously asserted the opposite and passed, which meant the
     worst offender in a document was the one guaranteed a free pass."""
-    text = ("No order. No motif. No structure. No spacing. " + FILLER
+    text = ("No order. No gradient. No structure. No spacing. " + FILLER
             + " It was fast, cheap and reliable.")
     # budget set so the allowance is exactly one run for this length
     hits = [h for h in analyze("x.txt", text, Config(parallel_budget_per_1k=2.5)).hits
@@ -941,7 +941,7 @@ def test_normalization_does_not_manufacture_runs():
 def test_normalization_does_not_break_anaphora():
     """Regression: trimming the stem off item one removed the repeated
     opening word that anaphora is defined by."""
-    assert _runs("You find a site, you mutate the serine, you run your assay.")
+    assert _runs("You find a transect, you flag the outlier, you run your survey.")
 
 
 # ------------------------------ v0.8: paragraph closers and the specifics floor
@@ -959,9 +959,9 @@ def test_closer_is_positional_not_lexical():
     """The point of a positional rule: rephrasing the punch does not satisfy
     it, because the rule never looks at what the punch says."""
     punchy = _para(
-        "The enzyme reads a short stretch of sequence and then it decides "
-        "which residue to modify. That is the model. It is wrong.",
-        "We tested it against a matched null across four modifications and "
+        "The sensor reads a short stretch of profile and then it decides "
+        "which horizon to sample. That is the model. It is wrong.",
+        "We tested it against a matched null across four treatments and "
         "the effect held up throughout. It isn't close.",
     )
     rephrased = punchy.replace("It is wrong.", "The evidence says otherwise.")
@@ -979,12 +979,12 @@ def test_closer_ratio_separates_the_talk_versions():
     punch_heavy = _para(*[
         f"The {w} ran for most of the afternoon and nobody in the room "
         "thought to check on it even once. It failed."
-        for w in ("gel", "column", "assay", "plate")
+        for w in ("gel", "column", "survey", "plate")
     ])
     flowing = _para(*[
         f"The {w} ran for most of the afternoon and nobody in the room "
         "thought to check on it, which is how the whole day got away."
-        for w in ("gel", "column", "assay", "plate")
+        for w in ("gel", "column", "survey", "plate")
     ])
     assert paragraph.closer_ratio(Document(punch_heavy)) == 1.0
     assert paragraph.closer_ratio(Document(flowing)) == 0.0
@@ -994,7 +994,7 @@ def test_closer_budget_reports_the_shortest_and_verbless_first():
     # paragraphs must clear MIN_PARAGRAPH_FOR_RATIO to be counted at all
     text = _para(
         "A paragraph that runs on for quite a while longer before it finally "
-        "stops right about here. One gene.",
+        "stops right about here. One plot.",
         "Another paragraph that also runs on for quite a while before it "
         "stops in much the same way. It failed.",
     )
@@ -1063,7 +1063,7 @@ def test_worst_paragraph_ranks_by_density_not_count():
     """A 200-word paragraph with four hits is in better shape than a 40-word
     paragraph with three. Ranking by raw count sends a reviser to the wrong
     one."""
-    dense = "One gene. One site. No motif."
+    dense = "One plot. One transect. No gradient."
     diffuse = ("We delve into it here. " + FILLER)
     text = dense + "\n\n" + diffuse
     result = analyze("x.txt", text, Config(min_sentence_words=5))
@@ -1079,7 +1079,7 @@ def test_worst_paragraph_is_empty_when_clean():
 def test_agent_orders_instructions_by_severity():
     """A reviser acts on the first few instructions, so those had better be
     the ones that matter."""
-    text = ("That said, we delve into it. One gene. One site. No motif. "
+    text = ("That said, we delve into it. One plot. One transect. No gradient. "
             + FILLER)
     rendered = agent.review("x.txt", text, Config(min_sentence_words=5)).render()
     # line 0 is FAIL, line 1 is the worst-paragraph summary
@@ -1088,7 +1088,7 @@ def test_agent_orders_instructions_by_severity():
 
 
 def test_agent_names_the_worst_paragraph_first():
-    text = "One gene. One site. No motif.\n\n" + FILLER
+    text = "One plot. One transect. No gradient.\n\n" + FILLER
     rendered = agent.review("x.txt", text, Config(min_sentence_words=5)).render()
     assert rendered.splitlines()[1].startswith("worst:")
 
@@ -1110,9 +1110,9 @@ def _doublets(text):
 @pytest.mark.parametrize("text", [
     "That isn't what's there, and it isn't a close call.",
     "One stretch that carries a cluster, one stretch that doesn't.",
-    "Same proteins. Same residue types.",
-    "You didn't test the modification. You tested one residue of it.",
-    "No order. No motif.",
+    "Same catchments. Same horizon types.",
+    "You didn't test the treatment. You tested one horizon of it.",
+    "No order. No gradient.",
 ])
 def test_doublets_catch_balance_at_two_units(text):
     """MIN_RUN = 3 was the same rule-of-three assumption parallel.py exists
@@ -1148,7 +1148,7 @@ def test_shared_pronoun_alone_is_not_anaphora():
 def test_doublet_is_budgeted_separately_from_triads():
     """Sharing the triad allowance would either drown it or gut it: doublets
     are an order of magnitude more common in ordinary prose."""
-    text = "Same proteins. Same residue types. " + FILLER
+    text = "Same catchments. Same horizon types. " + FILLER
     generous = analyze("x.txt", text, Config(doublet_budget_per_1k=20.0))
     strict = analyze("x.txt", text, Config(doublet_budget_per_1k=0.0))
     assert generous.counts()["doublet"] == 0
@@ -1160,9 +1160,9 @@ def test_clean_control_has_no_doublets():
 
 
 def test_canonical_antithesis_is_caught_by_the_negation_rule():
-    """"This isn't a modification, it's a language." is the cited form and
+    """"This isn't a treatment, it's a language." is the cited form and
     belongs to `negation`, not to the structural detector."""
-    assert analyze("x.txt", "This isn't a modification, it's a language.",
+    assert analyze("x.txt", "This isn't a treatment, it's a language.",
                    CFG).counts()["negation"] == 1
 
 
@@ -1184,7 +1184,7 @@ def test_local_alignment_does_not_separate_parallel_from_ordinary():
 
     parallel_pairs = [("That isn't what's there", "it isn't a close call"),
                       ("One stretch that carries a cluster",
-                       "one stretch on the same protein")]
+                       "one stretch on the same catchment")]
     ordinary_pairs = [("The gel ran slowly", "the room stayed cold all afternoon"),
                       ("It worked", "So we ran it the other way")]
 
@@ -1221,7 +1221,7 @@ def test_tagger_assigns_function_words_to_themselves():
     assert templates.tag("of") == "of"
     assert templates.tag("running") == "~ing"
     assert templates.tag("quickly") == "~adv"
-    assert templates.tag("proteins") == "~pl"
+    assert templates.tag("catchments") == "~pl"
     assert templates.tag("Kobak") == "^"
     assert templates.tag("1987") == "9"
 
@@ -1276,11 +1276,11 @@ def test_document_redundancy_does_not_subsume_local_shape_rules():
     If this ever starts failing, the document statistic has become sensitive
     enough to see local shape and parallel.py can be reconsidered."""
     balanced = ("That isn't what's there, and it isn't a close call. "
-                "Same proteins. Same residue types. "
-                "You didn't test the modification. You tested one residue. ")
+                "Same catchments. Same horizon types. "
+                "You didn't test the treatment. You tested one horizon. ")
     broken = ("That isn't what's there, and the gap is wide. "
-              "The proteins match, and so do the residue types. "
-              "What you probed was a single residue, not the modification. ")
+              "The catchments match, and so do the horizon types. "
+              "What you probed was a single horizon, not the treatment. ")
     carrier = (CORPUS / "clean_control.txt").read_text()
 
     with_doublets = templates.compute(Document(balanced + carrier))
@@ -1354,7 +1354,7 @@ def test_calibration_rejects_unknown_version():
 
 
 def test_calibrated_score_differs_from_hand_assigned_severity():
-    text = "We delve into the intricate realm. One gene. One site. " + FILLER
+    text = "We delve into the intricate realm. One plot. One transect. " + FILLER
     cal = cal_mod.Calibration.from_audit(_audit_json())
     plain = analyze("x.txt", text, Config(min_sentence_words=5))
     tuned = analyze("x.txt", text, Config(min_sentence_words=5, calibration=cal))
@@ -1480,7 +1480,7 @@ def test_profile_settings_survive_config_construction(tmp_path, capsys, monkeypa
     f = tmp_path / "a.txt"
     # the sentence floor is off by default and set to 5 by the talk profile,
     # so it isolates "did the profile setting reach the checks"
-    f.write_text("One gene. " + (CORPUS / "clean_control.txt").read_text())
+    f.write_text("One plot. " + (CORPUS / "clean_control.txt").read_text())
     main([str(f), "--no-color", "--format", "agent"])
     assert "[runt]" not in capsys.readouterr().out
     main([str(f), "--profile", "talk", "--no-color", "--format", "agent"])
@@ -1508,9 +1508,9 @@ PERSON = Config(person_budget_per_1k=0.0)
 
 
 @pytest.mark.parametrize("text", [
-    "You find a site on a protein and mutate the serine to alanine.",
-    "Throw out half the proteins and you're still above three fold.",
-    "That changes how you'd validate a target in the first place.",
+    "You find a transect on a hillside and move the sensor to bedrock.",
+    "Throw out half the catchments and you're still above three fold.",
+    "That changes how you'd validate a station in the first place.",
 ])
 def test_generic_you_is_flagged(text):
     """"You" standing in for "one" or "we", putting the audience inside a
@@ -1521,7 +1521,7 @@ def test_generic_you_is_flagged(text):
 @pytest.mark.parametrize("text", [
     "I would genuinely like you to try to break it.",
     "Today I want to show you one piece of that work.",
-    "Does the makeup of a protein tell you where the clusters fall?",
+    "Does the makeup of a catchment tell you where the clusters fall?",
     "Let me show you the null we lose the most ground against.",
 ])
 def test_real_address_is_not_flagged(text):
@@ -1539,13 +1539,13 @@ def test_thank_you_is_a_fixed_phrase():
 
 def test_person_rule_is_off_by_default():
     """A register preference with no citation, like the sentence floor."""
-    text = "You find a site and mutate the serine to alanine."
+    text = "You find a transect and move the sensor to bedrock."
     assert analyze("x.txt", text, CFG).counts()["person"] == 0
     assert analyze("x.txt", text, PERSON).counts()["person"] == 1
 
 
 def test_person_mix_counts_both_kinds():
-    doc = Document("We ran it again. You find a site. I would like you to try.")
+    doc = Document("We ran it again. You find a transect. I would like you to try.")
     mix = person_mod.compute(doc)
     assert mix.first_plural == 1
     assert mix.second_generic == 1 and mix.second_address == 1
@@ -1594,7 +1594,7 @@ def test_mcp_check_accepts_text_not_just_paths():
 def test_mcp_check_reports_the_round_budget():
     """The failure mode of a linter in a loop is revising until the count
     hits zero, so the stop condition travels with the result."""
-    text = "One gene. One site. No motif. " + (CORPUS / "clean_control.txt").read_text()
+    text = "One plot. One transect. No gradient. " + (CORPUS / "clean_control.txt").read_text()
     early = mcp_server.check(text=text, profile="talk", round_number=1)
     late = mcp_server.check(text=text, profile="talk", round_number=agent.MAX_ROUNDS)
     assert "rounds left" in early
@@ -1610,15 +1610,15 @@ def test_mcp_check_requires_an_input():
 @needs_mcp
 def test_mcp_profile_reaches_the_checks():
     """Regression guard on the bug that made --profile a no-op in the CLI."""
-    text = "One gene. " + (CORPUS / "clean_control.txt").read_text()
+    text = "One plot. " + (CORPUS / "clean_control.txt").read_text()
     assert "[runt]" not in mcp_server.check(text=text)
     assert "[runt]" in mcp_server.check(text=text, profile="talk")
 
 
 @needs_mcp
 def test_mcp_drift_returns_a_verdict():
-    out = mcp_server.drift(before="No order. No motif. No structure.",
-                           after="There was no order to it, and no motif "
+    out = mcp_server.drift(before="No order. No gradient. No structure.",
+                           after="There was no order to it, and no gradient "
                                  "that we could find anywhere in the set.")
     assert out.split()[0] in {"IMPROVED", "TRADED", "CHURNED", "OVERFIT", "CHOPPY"}
 
@@ -1647,7 +1647,7 @@ def test_mcp_ignores_ambient_config():
     """An MCP server is launched from an arbitrary cwd by the agent host.
     Picking up a .sloprefine.toml from there makes the same text score
     differently for reasons the caller cannot see."""
-    text = "One gene. " + (CORPUS / "clean_control.txt").read_text()
+    text = "One plot. " + (CORPUS / "clean_control.txt").read_text()
     # this repo's own config enables the sentence floor; the server must not
     assert "[runt]" not in mcp_server.check(text=text)
     assert "[runt]" in mcp_server.check(text=text, profile="talk")
