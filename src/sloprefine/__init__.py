@@ -10,7 +10,7 @@ from .stylometry import Stylometry
 from .text import Document
 from .voice import Voiceprint
 
-__version__ = "1.6.2"
+__version__ = "1.6.3"
 __all__ = [
     "RULES",
     "Config",

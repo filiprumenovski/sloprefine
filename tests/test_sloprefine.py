@@ -28,6 +28,21 @@ def test_sentence_split_respects_decimals():
     assert len(doc.sentences) == 2
 
 
+def test_litotes_does_not_fire_on_ordinary_negation():
+    """Always on and uncited, so precision is the whole argument for it. A
+    prefix match on "not un" would flag "not under", "not until", and "not
+    uniformly bad", which is a sentence in this package's own weighting.py.
+    The adjective list exists for that reason. "not a single one" is a
+    quantifier rather than a softening, so it is excluded too."""
+    for text in ("It is not a detector and will not tell you who wrote it.",
+                 "A source is not a vibe but something someone signed.",
+                 "Treat the rules as a cited snapshot, not a law.",
+                 "A document is not uniformly bad.",
+                 "There was not a single one left in the box.",
+                 "The change is not under review until Friday."):
+        assert "litotes" not in ids(text), text
+
+
 def test_a_figure_on_its_own_line_is_not_a_sentence():
     """Regression: a markdown image was read as a three-word sentence and
     refused by the floor, so illustrating a document cost hits it had not
@@ -52,6 +67,9 @@ def test_offsets_point_at_source():
     ("A thought \u2014 interrupted.", "emdash"),
     ("This isn't just chemistry.", "negation"),
     ("It's not about the sensor, it's the sample.", "negation"),
+    ("The gap is not a subtle one.", "litotes"),
+    ("That result is not uncommon.", "litotes"),
+    ("The method is not without merit.", "litotes"),
     ("Fast, cheap, and reliable.", "parallel"),   # subsumed: see _drop_subsumed_tricolons
     ("No order. No gradient. No structure.", "parallel"),
     ("One plot. One transect. Ten samples. But scale matters here somehow.", "fragments"),

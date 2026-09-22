@@ -267,6 +267,34 @@ _rule(
 )
 
 _rule(
+    id="litotes",
+    title="assertion by denying the opposite",
+    citation="[local]",
+    severity="medium",
+    why="Litotes: 'not a subtle one' for 'a large one'. No citation. The "
+        "catalogued tell is contrastive negation, which `negation` already "
+        "covers, and litotes is ordinary in speech. Enabled here on the "
+        "author's judgement, and listed as uncited so the distinction stays "
+        "visible.",
+    fix="State the positive claim. 'not a subtle one' is 'a large one'.",
+    patterns=(
+        # "not a subtle one". 'single' excluded: "not a single one" is a
+        # quantifier, not a rhetorical softening.
+        r"\bnot\s+an?\s+(?!single\b)\w+\s+one\b",
+        # An explicit adjective list, not \bnot\s+un\w+: that matches "not
+        # under", "not until", and "not uniformly bad", which is in this
+        # package's own weighting.py and is not litotes at all.
+        (
+            r"\bnot\s+un(?:common|usual|important|reasonable|likely"
+            r"|familiar|helpful|pleasant|related|true|aware|welcome"
+            r"|interesting|impressive|fair|kind|clear|remarkable"
+            r"|surprising)\b"
+        ),
+        r"\bnot\s+without\s+\w+",
+    ),
+)
+
+_rule(
     id="parallel",
     title="parallelism over budget",
     citation="[CL][PALV][GK]",

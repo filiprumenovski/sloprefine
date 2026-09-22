@@ -110,6 +110,15 @@ doublet rule was written for. A human caught it by reading.
 **v1.5.1.** Three consecutive version bumps failed silently, so the built
 wheel carried a version four releases behind the code.
 
+**v1.6.3.** Litotes went in on my judgement rather than on a source, after
+two of them got past every rule in the table. The catalogued tell is
+contrastive negation, which `negation` already covered, and the same
+catalogue lists "not bad" as ordinary speech. It is marked `local` for that
+reason. A prefix match on "not un" would have flagged the phrase "not
+uniformly bad" in this package's own `weighting.py`, which is not litotes at
+all, so the rule carries an explicit adjective list instead. The README was
+using one of these in the passage about writing under its own constraints.
+
 **v1.6.2.** The doublet path segmented on punctuation alone, so a balanced
 pair joined by "and" rather than by a comma was never formed and never
 tested. "one of them practical and one of them a warning" scored zero.
@@ -140,7 +149,7 @@ refinery."
 <!-- sloprefine: on -->
 
 Writing the marketing copy under the marketing copy's own constraints is a
-useful exercise and not a pleasant one.
+useful exercise and an unpleasant one.
 
 The linter has caught five genuine tricolons in these docs, one antithesis in
 the sentence explaining why antitheses are bad, and a paragraph making a
@@ -191,6 +200,7 @@ clone it and run `pip install -e ".[dev,mcp]"` instead.
 | `closer` | a punch landing in the same slot paragraph after paragraph | Forbes; palvdm |
 | `vague` | a 40-word paragraph naming no number, year, unit or proper noun | Kao; local |
 | `person` | "you" standing in for "one" or "we" | local |
+| `litotes` | "not a subtle one" where "a large one" was meant | local |
 
 <!-- sloprefine: on -->
 
