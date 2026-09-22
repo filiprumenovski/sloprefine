@@ -27,6 +27,7 @@ jobs:
         run: |
           sloprefine rules
           sloprefine prompt > /dev/null
+          sloprefine prompt --profile talk > /dev/null
           sloprefine check corpus/slop_control.txt --format agent || true
           sloprefine drift corpus/slop_control.txt corpus/clean_control.txt || true
           sloprefine prompt --audience expert > /dev/null

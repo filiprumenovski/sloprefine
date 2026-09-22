@@ -438,6 +438,18 @@ def test_style_contract_covers_enabled_rules_only():
     assert "epistemic position" in contract
 
 
+def test_style_contract_takes_the_profile_that_will_judge_it():
+    """Regression: the README's first line was `prompt --profile talk` and
+    the prompt parser rejected --profile, so the documented way to constrain
+    generation exited 2. CI only ever ran prompt bare."""
+    talk = agent.style_contract(profile="talk")
+    assert "Judged as talk" in talk
+    # the numbers, not the profile name: a model cannot act on "talk"
+    assert "under 5 words" in talk and "12%" in talk
+    assert "Judged as" not in agent.style_contract()
+    assert agent.style_contract(profile="essay") != talk
+
+
 def test_style_contract_includes_voice_targets():
     vp = voice.build(_corpus())
     assert "measured baseline" in agent.style_contract(voice=vp)

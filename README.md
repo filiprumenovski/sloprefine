@@ -24,6 +24,51 @@ an old one, and one of them reintroduced the exact cadence the whole project
 exists to remove, with a paragraph of metrics arguing that it was an
 improvement.
 
+## Most of it is not a banned-words list
+
+The rule table is the least interesting layer here. Pointed at the one
+labelled corpus it has been tried against, half of those rules failed to
+discriminate at all, and they are marked as such. What survives that is the
+measurement.
+
+One rule is shaped differently from the rest. `vague` asks a long paragraph
+to name something checkable, and it is the only entry in the table that
+cutting words cannot satisfy. The rules section covers what counts.
+
+The cadence layer measures what a listener hears rather than what a reader
+scans. `punch` folds choppiness, paragraph closers, balanced pairs and
+parallel runs into a single number, which scores the clean corpus control at
+0.05 and the choppy one at 1.00. That number is the thing this project
+started over.
+
+Generation can be shaped before the fact instead of repaired after it.
+`sloprefine prompt --profile talk` emits the constraints as a contract to put
+in front of a model, carrying that profile's actual numbers: a five-word
+sentence floor, 12% choppiness, and 10% of paragraphs allowed to end on a
+punch.
+
+Whether an edit helped is a separate question from whether it removed hits,
+and `sloprefine drift before.md after.md` answers the first one. It reports
+what a revision cost alongside what it fixed, because two thirds of the
+rounds measured here broke something while mending something else.
+
+A baseline can be yours rather than a population's. `sloprefine voice build
+~/writing -o me.json` learns one from your own prose, after which stylometry
+is reported as deviation from you. Fewer than three documents of 150 words
+and it refuses, on the grounds that a baseline drawn from two describes those
+two.
+
+Whether any of this holds on your material is checkable. `sloprefine audit
+--ai theirs/ --human mine/` measures which rules actually separate the two
+piles, and prints the ones that do not. That command is how half the table
+came to be marked unreliable.
+
+Readers are not interchangeable either. Passing `--audience expert` changes
+the contract, because the two clusters in [MGF25] weight different features.
+Experts reward variety of device and penalise a uniform positive tone, and
+the human writing they preferred scored lower on local coherence than the
+machine writing did.
+
 ## Things this repository has been wrong about
 
 The commit log is the interesting documentation, in rough order of how much each one should have been obvious.

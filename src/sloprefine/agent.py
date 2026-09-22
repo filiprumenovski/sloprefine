@@ -118,6 +118,7 @@ def style_contract(
     disabled: tuple[str, ...] = (),
     voice: object | None = None,
     audience: str | None = None,
+    profile: str | None = None,
 ) -> str:
     """Constraints to place in front of generation.
 
@@ -152,6 +153,27 @@ def style_contract(
             "number, a name, or a date beats a category."
         ),
     ]
+    if profile:
+        # The same profile that will judge the draft should constrain the
+        # draft. Emitting the numbers, not the profile name, because a model
+        # cannot act on "talk" but can act on a sentence-length floor.
+        from .punch import PROFILES
+        prof = PROFILES[profile]
+        lines += ["", f"Judged as {prof.name}. {prof.why}", ""]
+        s = prof.settings
+        if s.get("min_sentence_words"):
+            lines.append(f"- No sentence under {s['min_sentence_words']} words "
+                         "that does not carry a finite verb.")
+        if s.get("max_choppiness") is not None:
+            lines.append(
+                f"- At most {s['max_choppiness']:.0%} of words in sentences of "
+                "7 words or fewer.")
+        if s.get("closer_budget_ratio") is not None:
+            lines.append(f"- At most {s['closer_budget_ratio']:.0%} of "
+                         "paragraphs ending on a short sentence.")
+        if s.get("doublet_budget_per_1k") == 0.0:
+            lines.append("- No balanced pairs and no parallel runs at all.")
+
     if audience:
         from .reader import contract_lines
         lines += ["", f"Written for {audience} readers:"]

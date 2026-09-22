@@ -91,7 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="sloprefine",
         description="Lint prose against published AI-writing tells. "
-                    "Subcommands: check (default), voice, rules.",
+                    "Subcommands: check (default), voice, rules, "
+                    "prompt, drift, audit.",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -174,6 +175,9 @@ def _cmd_prompt(argv: list[str]) -> int:
     p.add_argument("--disable", action="append", default=[], metavar="RULE")
     p.add_argument("--voice", metavar="FILE")
     p.add_argument("--audience", choices=("expert", "general"))
+    p.add_argument("--profile", choices=("talk", "essay", "docs"),
+                   help="constrain generation with the same profile that will "
+                        "judge the draft")
     args = p.parse_args(argv)
     voiceprint = None
     if args.voice:
@@ -183,7 +187,7 @@ def _cmd_prompt(argv: list[str]) -> int:
             print(f"sloprefine: voiceprint: {exc}", file=sys.stderr)
             return 2
     print(style_contract(disabled=tuple(args.disable), voice=voiceprint,
-                         audience=args.audience))
+                         audience=args.audience, profile=args.profile))
     return 0
 
 
