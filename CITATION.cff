@@ -6,9 +6,10 @@ authors:
   - family-names: Rumenovski
     given-names: Filip
     affiliation: "Wayne State University"
-repository-code: "https://github.com/USERNAME/REPONAME"
+    email: "frumenovski@gmail.com"
+repository-code: "https://github.com/filiprumenovski/sloprefine"
 license: MIT
-version: 1.6.0
+version: 1.6.1
 date-released: 2026-09-22
 abstract: >-
   A dependency-free prose linter that flags the documented surface markers of
