@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from . import cadence as cadence_mod
 from .report import Config, Result, analyze
 from .rules import RULES
+from .weighting import WEIGHTS
 
 # Below this, a revision is churning rather than improving.
 MIN_HIT_REDUCTION = 1
@@ -57,6 +58,7 @@ class Review:
     total: int
     instructions: list[Instruction] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    worst: str = ""
     result: Result | None = None
 
     def render(self, max_spans: int = 6) -> str:
@@ -66,8 +68,13 @@ class Review:
         if self.passed and not self.notes:
             return "PASS"
         lines = ["PASS" if self.passed else f"FAIL {self.total}"]
+        if self.worst:
+            lines.append(f"worst: {self.worst}")
+        # Highest severity first: a reviser given nineteen instructions acts
+        # on the first few, so those had better be the ones that matter.
         grouped: dict[str, list[Instruction]] = {}
-        for ins in self.instructions:
+        for ins in sorted(self.instructions,
+                          key=lambda i: -WEIGHTS.get(RULES[i.rule].severity, 1)):
             grouped.setdefault(ins.rule, []).append(ins)
         for rule, group in grouped.items():
             lines.append(f"[{rule}] x{len(group)}: {RULES[rule].fix}")
@@ -101,6 +108,7 @@ def review(path: str, text: str, config: Config | None = None) -> Review:
         total=result.total,
         instructions=instructions,
         notes=notes,
+        worst=result.worst[0].render() if result.worst else "",
         result=result,
     )
 

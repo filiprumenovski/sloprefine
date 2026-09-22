@@ -361,11 +361,9 @@ def test_rules_subcommand_lists_every_rule(capsys):
         assert rule_id in out
 
 
-def test_tricolon_ignores_lists_of_proper_nouns():
-    """Regression: "Shan, Lee and Hao" is a citation, not a cadence choice.
-    The exemption has to hold in both the narrow rule and the general one."""
-    citation = ids("The core set comes from Shan, Lee and Hao (2026).")
-    assert "tricolon" not in citation and "parallel" not in citation
+def test_parallel_ignores_lists_of_proper_nouns():
+    """Regression: "Shan, Lee and Hao" is a citation, not a cadence choice."""
+    assert "parallel" not in ids("The core set comes from Shan, Lee and Hao (2026).")
     assert "parallel" in ids("It was fast, cheap and reliable throughout.")
 
 
@@ -425,7 +423,7 @@ def test_agent_render_is_cheaper_when_hits_repeat():
 
 def test_style_contract_covers_enabled_rules_only():
     contract = agent.style_contract(disabled=("vocab",))
-    assert RULES["tricolon"].fix in contract
+    assert RULES["parallel"].fix in contract
     assert RULES["vocab"].fix not in contract
     assert "epistemic position" in contract
 
@@ -922,9 +920,13 @@ def test_budget_forgives_the_mildest_run_not_the_worst():
     assert "4 units" in hits[0].note      # the tricolon consumed the budget
 
 
-def test_tricolon_hits_are_not_double_counted():
-    counts = analyze("x.txt", "It was fast, cheap and reliable.", PAR).counts()
-    assert counts["parallel"] == 1 and counts["tricolon"] == 0
+def test_tricolon_rule_is_retired():
+    """`parallel` catches every case `tricolon` caught plus the escapes.
+    Keeping both meant two rules maintaining one concept, and a dedupe hack
+    in run_checks to stop them double-counting the same construction."""
+    assert "tricolon" not in RULES
+    assert analyze("x.txt", "It was fast, cheap and reliable.", PAR
+                   ).counts()["parallel"] == 1
 
 
 def test_normalization_does_not_manufacture_runs():
@@ -1038,3 +1040,59 @@ def test_quoted_markers_are_not_vocabulary_hits():
     which made the tool unusable for its own documentation."""
     assert analyze("x.txt", 'Kobak measured "delves" at 28x excess.', CFG).counts()["vocab"] == 0
     assert analyze("x.txt", "We delve into the data here.", CFG).counts()["vocab"] == 1
+
+
+# ------------------------------------- v0.9: weighting and paragraph ranking
+
+from slopcheck import weighting
+
+
+def test_score_weights_severity():
+    """A flat count called a stock transition and a paragraph with nothing
+    specific in it one each. They are not one each."""
+    low = analyze("x.txt", "That said, it held. " * 3, CFG)
+    assert low.score > low.per_1k  # weighted >= raw for any non-empty set
+    high_rule = RULES["vague"].severity
+    assert weighting.WEIGHTS[high_rule] > weighting.WEIGHTS["low"]
+
+
+def test_worst_paragraph_ranks_by_density_not_count():
+    """A 200-word paragraph with four hits is in better shape than a 40-word
+    paragraph with three. Ranking by raw count sends a reviser to the wrong
+    one."""
+    dense = "One gene. One site. No motif."
+    diffuse = ("We delve into it here. " + FILLER)
+    text = dense + "\n\n" + diffuse
+    result = analyze("x.txt", text, Config(min_sentence_words=5))
+    assert result.worst
+    assert result.worst[0].index == 1
+    assert result.worst[0].weighted > result.worst[-1].weighted
+
+
+def test_worst_paragraph_is_empty_when_clean():
+    assert analyze("x.txt", (CORPUS / "clean_control.txt").read_text(), CFG).worst == []
+
+
+def test_agent_orders_instructions_by_severity():
+    """A reviser acts on the first few instructions, so those had better be
+    the ones that matter."""
+    text = ("That said, we delve into it. One gene. One site. No motif. "
+            + FILLER)
+    rendered = agent.review("x.txt", text, Config(min_sentence_words=5)).render()
+    # line 0 is FAIL, line 1 is the worst-paragraph summary
+    first_rule = rendered.splitlines()[2].split("[")[1].split("]")[0]
+    assert weighting.WEIGHTS[RULES[first_rule].severity] == 3.0
+
+
+def test_agent_names_the_worst_paragraph_first():
+    text = "One gene. One site. No motif.\n\n" + FILLER
+    rendered = agent.review("x.txt", text, Config(min_sentence_words=5)).render()
+    assert rendered.splitlines()[1].startswith("worst:")
+
+
+def test_long_verbatim_repeat_fires_at_two_occurrences():
+    """Four words need three uses to read as filler. Six words repeated
+    verbatim is a tell at two: nobody does that by accident."""
+    phrase = "the address is regional rather than positional"
+    text = f"{phrase} in the data. " + FILLER + f" Again, {phrase} here."
+    assert analyze("x.txt", text, CFG).counts()["template"] >= 1

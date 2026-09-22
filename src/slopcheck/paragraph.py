@@ -32,6 +32,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .cadence import has_finite_verb
 from .text import Document, Span
 
 CLOSER_MAX_WORDS = 8
@@ -63,8 +64,6 @@ class Closer:
 
 def closers(doc: Document) -> list[Closer]:
     """Paragraphs whose final sentence is short."""
-    from .cadence import _has_finite_verb
-
     out: list[Closer] = []
     for para in doc.paragraphs:
         inside = [s for s in doc.sentences
@@ -75,7 +74,7 @@ def closers(doc: Document) -> list[Closer]:
             continue
         last = inside[-1]
         if len(last) <= CLOSER_MAX_WORDS:
-            out.append(Closer(last, len(last), not _has_finite_verb(last)))
+            out.append(Closer(last, len(last), not has_finite_verb(last)))
     return out
 
 

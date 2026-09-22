@@ -13,6 +13,7 @@ from . import paragraph as paragraph_mod
 from . import reader as reader_mod
 from . import stylometry as stylometry_mod
 from . import voice as voice_mod
+from . import weighting as weighting_mod
 from .checks import Hit, run_checks
 from .rules import RULES
 from .text import Document, markdown_furniture, mask, suppressed_ranges
@@ -81,6 +82,7 @@ class Result:
     metrics: metrics_mod.Metrics | None = None
     cadence: cadence_mod.Cadence | None = None
     structure: dict = field(default_factory=dict)
+    worst: list = field(default_factory=list)
     style: stylometry_mod.Stylometry | None = None
     reader: reader_mod.ReaderSignals | None = None
     reader_notes: list[str] = field(default_factory=list)
@@ -90,6 +92,12 @@ class Result:
     @property
     def total(self) -> int:
         return len(self.hits)
+
+    @property
+    def score(self) -> float:
+        """Severity-weighted hits per 1000 words."""
+        w = self.metrics.words if self.metrics else 0
+        return weighting_mod.score(self.hits, w)
 
     @property
     def per_1k(self) -> float:
@@ -141,6 +149,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         style=style, deviations=deviations, voice_notes=notes,
         reader=signals, reader_notes=reader_notes, cadence=cad,
         structure=structure,
+        worst=weighting_mod.worst_paragraphs(doc, hits),
     )
 
 
@@ -230,8 +239,10 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
     total_color = GREEN if result.total == 0 else RED
     out.append(
         "  " + c(BOLD, "total ") + c(total_color, str(result.total))
-        + f"  ({result.per_1k} per 1k words)"
+        + f"  ({result.per_1k}/1k, weighted {result.score}/1k)"
     )
+    if result.worst:
+        out.append("  " + c(BOLD, "worst  ") + result.worst[0].render())
     _ = doc_lines
     return "\n".join(out)
 
@@ -242,6 +253,8 @@ def render_json(results: list[Result]) -> str:
             "path": r.path,
             "total": r.total,
             "per_1k": r.per_1k,
+            "score": r.score,
+            "worst_paragraphs": [vars(p) for p in r.worst],
             "counts": r.counts(),
             "cadence": r.cadence.as_dict() if r.cadence else {},
             "structure": r.structure,

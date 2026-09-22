@@ -105,15 +105,6 @@ _rule(
 )
 
 _rule(
-    id="tricolon",
-    title="tricolon / triad rhythm",
-    citation="[CL][PALV][GK]",
-    severity="high",
-    why="Groups of three chosen for cadence rather than because there are three.",
-    fix="Use two items or four, or dissolve the list into a clause. Keep only items that carry distinct information.",
-)
-
-_rule(
     id="fragments",
     title="fragment stack (TED cadence)",
     citation="[FB]",

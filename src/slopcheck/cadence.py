@@ -30,7 +30,7 @@ short_share    fraction of WORDS living in sentences of <= 7 words. Word-
 verbless_share fraction of sentences with no detectable finite verb. This is
                the distinction that matters for delivery: "It worked." is a
                short sentence, "One gene." is a fragment. Heuristic, no POS
-               tagger; see _has_finite_verb. Two known misses: a bare past participle
+               tagger; see has_finite_verb. Two known misses: a bare past participle
                ("Matched null.") passes the verb test, and a third-person
                singular verb outside FINITE_FORMS fails it. Use
                --strict-runts when the floor must be absolute.
@@ -112,7 +112,7 @@ _VERBISH = re.compile(r"\w+(?:ed|ing)$")
 _PLURAL_NOUNISH = re.compile(r"\w+(?:ss|us|is|ics|ness|tions?|ments?)$")
 
 
-def _has_finite_verb(span: Span) -> bool:
+def has_finite_verb(span: Span) -> bool:
     words = [form for w in span.words for form in _expand(w)]
     if any(w in FINITE_FORMS for w in words):
         return True
@@ -165,7 +165,7 @@ def compute(doc: Document) -> Cadence:
     short_words = sum(n for n in lengths if n <= SHORT_WORDS)
     short_share = short_words / total_words
 
-    verbless = sum(1 for s in sentences if not _has_finite_verb(s))
+    verbless = sum(1 for s in sentences if not has_finite_verb(s))
     verbless_share = verbless / len(sentences)
 
     run_words, run = 0, []

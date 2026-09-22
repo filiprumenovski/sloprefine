@@ -5,7 +5,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .cadence import has_finite_verb
+from .paragraph import closers, vague_paragraphs
+from .parallel import find as find_parallel
 from .rules import LEXICON, RULES
+from .stylometry import STOPWORDS
 from .text import WORD, Document
 
 FRAGMENT_MAX_WORDS = 7
@@ -51,34 +55,6 @@ def check_vocab(doc: Document, allow: frozenset[str] = frozenset()) -> list[Hit]
             continue
         hits.append(Hit("vocab", m.start(), m.end(), m.group(0)))
     return hits
-
-
-def check_tricolon(doc: Document) -> list[Hit]:
-    """Two shapes: 'a, b, and c' of bare items, and anaphora repeated 3x."""
-    hits = []
-    for m in re.finditer(
-        r"\b([A-Za-z][\w-]*), ([A-Za-z][\w-]*),? and ([A-Za-z][\w-]*)\b", doc.text
-    ):
-        items = (m.group(1), m.group(2), m.group(3))
-        if len(WORD.findall(m.group(0))) > 6:
-            continue
-        # A list of proper nouns is a fact about the world, not a cadence
-        # choice: "Shan, Lee and Hao" and "Qwen, Gemma and Llama" are not
-        # tricolons. Sentence-initial capitals are excluded from the test.
-        mid_sentence = m.start() > 0 and doc.text[m.start() - 1] not in ".!?\n"
-        if mid_sentence and all(w[:1].isupper() for w in items):
-            continue
-        hits.append(Hit("tricolon", m.start(), m.end(), m.group(0), "list of three"))
-    for m in re.finditer(
-        r"\b(\w+)\s+[\w\s-]{1,28}[,.;]\s+\1\s+[\w\s-]{1,28}[,.;]\s+\1\s+[\w\s-]{1,28}[.,;]",
-        doc.text,
-        re.IGNORECASE,
-    ):
-        hits.append(
-            Hit("tricolon", m.start(), m.end(),
-                re.sub(r"\s+", " ", m.group(0)), "anaphora x3")
-        )
-    return _dedupe(hits)
 
 
 def check_fragments(doc: Document) -> list[Hit]:
@@ -143,7 +119,6 @@ CHECKS = {
     "vocab": check_vocab,
     "emdash": lambda d: _regex_check(d, "emdash"),
     "negation": lambda d: _regex_check(d, "negation"),
-    "tricolon": check_tricolon,
     "fragments": check_fragments,
     "transitions": lambda d: _regex_check(d, "transitions"),
     "narrator": lambda d: _regex_check(d, "narrator"),
@@ -183,19 +158,7 @@ def run_checks(
             hits += check_vague(doc, vague_min_words)
         else:
             hits += fn(doc)
-    return _drop_subsumed_tricolons(sorted(hits, key=lambda h: h.start))
-
-
-def _drop_subsumed_tricolons(hits: list[Hit]) -> list[Hit]:
-    """`tricolon` is the narrow cited case and `parallel` is the general one.
-    Where they overlap the same construction is one problem, not two, so the
-    narrow hit is dropped rather than counted twice."""
-    wide = [h for h in hits if h.rule_id == "parallel"]
-    return [
-        h for h in hits
-        if h.rule_id != "tricolon"
-        or not any(w.start <= h.start and h.end <= w.end for w in wide)
-    ]
+    return sorted(hits, key=lambda h: h.start)
 
 
 # ---------------------------------------------------------------- v0.2 checks
@@ -203,6 +166,11 @@ def _drop_subsumed_tricolons(hits: list[Hit]) -> list[Hit]:
 OPENER_RUN = 3
 TEMPLATE_N = 4
 TEMPLATE_MIN_REPEATS = 3
+# A four-word frame needs three uses to read as filler, but a six-word
+# verbatim repeat is a tell at two: nobody writes the same six words twice
+# by accident in a thousand words.
+TEMPLATE_LONG_N = 6
+TEMPLATE_LONG_REPEATS = 2
 
 
 def check_opener(doc: Document) -> list[Hit]:
@@ -238,23 +206,22 @@ def check_template(doc: Document) -> list[Hit]:
               for m in WORD.finditer(doc.text)]
     if len(tokens) < TEMPLATE_N * TEMPLATE_MIN_REPEATS:
         return []
-    from .stylometry import STOPWORDS
-
-    grams: dict[tuple[str, ...], list[tuple[int, int]]] = {}
-    for i in range(len(tokens) - TEMPLATE_N + 1):
-        window = tokens[i:i + TEMPLATE_N]
-        key = tuple(w for w, _, _ in window)
-        if all(w in STOPWORDS for w in key):
-            continue
-        grams.setdefault(key, []).append((window[0][1], window[-1][2]))
-
     hits = []
-    for key, spans in grams.items():
-        if len(spans) >= TEMPLATE_MIN_REPEATS:
-            start, end = spans[0]
-            hits.append(Hit("template", start, end, " ".join(key),
-                            f"{len(spans)}x"))
-    return hits
+    for width, repeats in ((TEMPLATE_N, TEMPLATE_MIN_REPEATS),
+                           (TEMPLATE_LONG_N, TEMPLATE_LONG_REPEATS)):
+        grams: dict[tuple[str, ...], list[tuple[int, int]]] = {}
+        for i in range(len(tokens) - width + 1):
+            window = tokens[i:i + width]
+            key = tuple(w for w, _, _ in window)
+            if all(w in STOPWORDS for w in key):
+                continue
+            grams.setdefault(key, []).append((window[0][1], window[-1][2]))
+        for key, spans in grams.items():
+            if len(spans) >= repeats:
+                start, end = spans[0]
+                hits.append(Hit("template", start, end, " ".join(key),
+                                f"{len(spans)}x, {width}-gram"))
+    return _dedupe(hits)
 
 
 def check_runt(
@@ -272,15 +239,13 @@ def check_runt(
 
     mode="all" is the absolute floor: nothing under it survives.
     """
-    from .cadence import _has_finite_verb
-
     if floor < 2:
         return []
     hits = []
     for span in doc.sentences:
         if len(span) >= floor or span.text in allow:
             continue
-        if mode == "verbless" and _has_finite_verb(span):
+        if mode == "verbless" and has_finite_verb(span):
             continue
         hits.append(Hit("runt", span.start, span.end, span.text,
                         f"{len(span)}w, floor {floor}"))
@@ -293,8 +258,6 @@ def check_closer(doc: Document, budget_ratio: float = 0.25) -> list[Hit]:
     The allowance covers the mildest cases, so the shortest and most
     fragment-like closers are the ones reported.
     """
-    from .paragraph import closers
-
     found = closers(doc)
     if not found:
         return []
@@ -311,8 +274,6 @@ def check_closer(doc: Document, budget_ratio: float = 0.25) -> list[Hit]:
 
 
 def check_vague(doc: Document, min_words: int = 40) -> list[Hit]:
-    from .paragraph import vague_paragraphs
-
     return [
         Hit("vague", p.start, p.end, p.text[:70],
             f"{len(p)}w paragraph, no number, year, unit or proper noun")
@@ -328,9 +289,7 @@ def check_parallel(doc: Document, budget_per_1k: float = 1.0) -> list[Hit]:
     on the widest runs first, so a tetracolon costs more than a tricolon and
     the fix instruction lands on the worst offender rather than the earliest.
     """
-    from .parallel import find
-
-    runs = find(doc)
+    runs = find_parallel(doc)
     if not runs:
         return []
     # The allowance covers the MILDEST runs, so the widest ones are what gets
