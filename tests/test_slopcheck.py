@@ -1096,3 +1096,68 @@ def test_long_verbatim_repeat_fires_at_two_occurrences():
     phrase = "the address is regional rather than positional"
     text = f"{phrase} in the data. " + FILLER + f" Again, {phrase} here."
     assert analyze("x.txt", text, CFG).counts()["template"] >= 1
+
+
+# --------------------------------------------------- v1.0: balanced doublets
+
+def _doublets(text):
+    return parallel.doublets(Document(text))
+
+
+@pytest.mark.parametrize("text", [
+    "That isn't what's there, and it isn't a close call.",
+    "One stretch that carries a cluster, one stretch that doesn't.",
+    "Same proteins. Same residue types.",
+    "You didn't test the modification. You tested one residue of it.",
+    "No order. No motif.",
+])
+def test_doublets_catch_balance_at_two_units(text):
+    """MIN_RUN = 3 was the same rule-of-three assumption parallel.py exists
+    to reject. The tell is balance, and balance starts at two. Every one of
+    these sat exactly one unit under the run threshold."""
+    assert _doublets(text), text
+
+
+@pytest.mark.parametrize("text", [
+    "I ran it again with fresh reagent, and I got the same nothing back.",
+    "The buffer was cold and nobody had checked the timer before we started.",
+    "She asked why we measured at thirty minutes, which nobody could answer.",
+    "Nobody had a reason for it, and the number survived four lab generations.",
+    "It worked. So we ran it the other way, trained on rice and tested on human.",
+])
+def test_doublets_leave_ordinary_pairs_alone(text):
+    """Doublets are ordinary English. A detector that fires on every pair is
+    worse than no detector."""
+    assert _doublets(text) == []
+
+
+def test_quantifiers_are_not_a_polarity_flip():
+    """Regression: treating "nothing" as negation fired on "I ran it again
+    with fresh reagent, and I got the same nothing back"."""
+    assert _doublets("I tried it once, and I got the same nothing back.") == []
+    assert _doublets("You didn't try it once. You tried it three times.")
+
+
+def test_shared_pronoun_alone_is_not_anaphora():
+    assert _doublets("It ran for an hour, and it stopped without warning.") == []
+
+
+def test_doublet_is_budgeted_separately_from_triads():
+    """Sharing the triad allowance would either drown it or gut it: doublets
+    are an order of magnitude more common in ordinary prose."""
+    text = "Same proteins. Same residue types. " + FILLER
+    generous = analyze("x.txt", text, Config(doublet_budget_per_1k=20.0))
+    strict = analyze("x.txt", text, Config(doublet_budget_per_1k=0.0))
+    assert generous.counts()["doublet"] == 0
+    assert strict.counts()["doublet"] == 1
+
+
+def test_clean_control_has_no_doublets():
+    assert _doublets((CORPUS / "clean_control.txt").read_text()) == []
+
+
+def test_canonical_antithesis_is_caught_by_the_negation_rule():
+    """"This isn't a modification, it's a language." is the cited form and
+    belongs to `negation`, not to the structural detector."""
+    assert analyze("x.txt", "This isn't a modification, it's a language.",
+                   CFG).counts()["negation"] == 1

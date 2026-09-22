@@ -30,6 +30,7 @@ class Config:
     allow_runts: frozenset[str] = frozenset()
     parallel_budget_per_1k: float = 1.0
     closer_budget_ratio: float = 0.25
+    doublet_budget_per_1k: float = 2.0
     vague_min_words: int = 40
     max_choppiness: float | None = None
     max_hits: int | None = None
@@ -66,6 +67,7 @@ class Config:
             runt_mode=data.get("runt_mode", "verbless"),
             parallel_budget_per_1k=data.get("parallel_budget_per_1k", 1.0),
             closer_budget_ratio=data.get("closer_budget_ratio", 0.25),
+            doublet_budget_per_1k=data.get("doublet_budget_per_1k", 2.0),
             vague_min_words=data.get("vague_min_words", 40),
             allow_runts=frozenset(data.get("allow_runts", [])),
             skip_code_blocks=data.get("skip_code_blocks", True),
@@ -126,6 +128,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         allow_runts=config.allow_runts,
         parallel_budget_per_1k=config.parallel_budget_per_1k,
         closer_budget_ratio=config.closer_budget_ratio,
+        doublet_budget_per_1k=config.doublet_budget_per_1k,
         vague_min_words=config.vague_min_words,
     )
     style = stylometry_mod.compute(doc)

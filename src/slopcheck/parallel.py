@@ -45,6 +45,7 @@ construction in a piece is a choice. Six is a cadence.
 
 from __future__ import annotations
 
+import itertools
 import re
 from dataclasses import dataclass
 
@@ -147,6 +148,80 @@ def _all_proper(units: list[str]) -> bool:
     return all(f and f[0][:1].isupper() for f in firsts)
 
 
+# Doublets. MIN_RUN = 3 was the same rule-of-three assumption this module
+# exists to reject: the tell is BALANCE, and balance starts at two. The
+# antithetical pair is arguably the most characteristic machine construction
+# there is ("that isn't what's there, and it isn't a close call"), and every
+# instance of it sits one unit under the run threshold.
+#
+# Doublets are also ordinary English, so the criteria are tight: two adjacent
+# units of near-equal length that share a content word or a negator, with a
+# polarity flip or a repeated opening counting extra. A shared pronoun does
+# not count, or "I ran it again, and I got the same nothing" would fire.
+DOUBLET_MIN_WORDS = 2
+DOUBLET_MAX_WORDS = 14
+DOUBLET_MAX_DIFF = 3
+
+_NEGATOR = re.compile(
+    r"\b(?:not|no|never|nothing|none|nor|isn'?t|aren'?t|wasn'?t|doesn'?t|"
+    r"don'?t|didn'?t|hasn'?t|haven'?t|won'?t|can'?t|cannot|couldn'?t)\b", re.IGNORECASE)
+
+# Only a real polarity contrast counts for the same-opening path. Treating
+# quantifiers as negation fired on "I ran it again with fresh reagent, and I
+# got the same nothing back", which is ordinary prose.
+_STRONG_NEGATOR = re.compile(
+    r"\b(?:not|never|cannot|isn'?t|aren'?t|wasn'?t|doesn'?t|don'?t|didn'?t|"
+    r"hasn'?t|haven'?t|won'?t|can'?t|couldn'?t)\b", re.IGNORECASE)
+
+_PRONOUN = frozenset(
+    ["i", "we", "you", "he", "she", "it", "they", "me", "us", "him", "her", "them", "this", "that", "these", "those", "there"])
+
+
+def _shared_anchor(a: list[str], b: list[str]) -> str | None:
+    """A token both units share that is not a bare pronoun."""
+    sa, sb = {w.lower() for w in a}, {w.lower() for w in b}
+    for w in sorted(sa & sb):
+        if w in _PRONOUN:
+            continue
+        if w not in STOPWORDS or _NEGATOR.fullmatch(w):
+            return w
+    return None
+
+
+def _is_doublet(left: str, right: str) -> str | None:
+    """Return a reason string when two units form a balanced pair."""
+    a = WORD.findall(_LEAD.sub("", left.strip()))
+    b = WORD.findall(_LEAD.sub("", right.strip()))
+    if not (DOUBLET_MIN_WORDS <= len(a) <= DOUBLET_MAX_WORDS):
+        return None
+    if not (DOUBLET_MIN_WORDS <= len(b) <= DOUBLET_MAX_WORDS):
+        return None
+    if abs(len(a) - len(b)) > DOUBLET_MAX_DIFF:
+        return None
+
+    anchor = _shared_anchor(a, b)
+    neg_a, neg_b = bool(_NEGATOR.search(left)), bool(_NEGATOR.search(right))
+    flip = neg_a != neg_b
+    same_open = a[0].lower() == b[0].lower()
+
+    # Signals are checked independently. Gating them all behind a shared
+    # content anchor missed "Same proteins. Same residue types.", where the
+    # repeated word is a stopword and IS the whole construction.
+    if same_open and a[0].lower() not in _PRONOUN:
+        return f"anaphora on '{a[0].lower()}'"
+    if len(a) > 1 and len(b) > 1 and [w.lower() for w in a[:2]] == [w.lower() for w in b[:2]]:
+        return f"repeated opening '{a[0]} {a[1]}'"
+    strong_flip = (bool(_STRONG_NEGATOR.search(left))
+                   != bool(_STRONG_NEGATOR.search(right)))
+    if strong_flip and same_open and abs(len(a) - len(b)) <= 2:
+        return "antithesis, same opening"
+    if flip and anchor is not None:
+        return f"antithesis on '{anchor}'"
+    if neg_a and neg_b and anchor is not None and _NEGATOR.fullmatch(anchor):
+        return f"negated pair on '{anchor}'"
+    return None
+
+
 @dataclass(frozen=True)
 class Run:
     start: int
@@ -198,6 +273,33 @@ def _anaphora_runs(units: list[tuple[int, int, str]]) -> list[tuple[int, int, in
             out.append((i, j - 1, j - i))
         i = max(j, i + 1)
     return out
+
+
+def doublets(doc: Document) -> list[Run]:
+    """Balanced pairs, inside a sentence and across adjacent sentences."""
+    out: list[Run] = []
+    for span in doc.sentences:
+        segs = _segment(span.text)
+        cursor = span.start
+        located = []
+        for piece in segs:
+            idx = doc.text.find(piece, cursor)
+            if idx < 0:
+                continue
+            located.append((idx, idx + len(piece), piece))
+            cursor = idx + len(piece)
+        for (s1, _, left), (_, e2, right) in itertools.pairwise(located):
+            reason = _is_doublet(left, right)
+            if reason:
+                out.append(Run(s1, e2, f"doublet, {reason}", 2,
+                               f"{left.strip()} | {right.strip()}"[:70]))
+    sents = [(s.start, s.end, s.text) for s in doc.sentences]
+    for (s1, _, left), (_, e2, right) in itertools.pairwise(sents):
+        reason = _is_doublet(left, right)
+        if reason:
+            out.append(Run(s1, e2, f"doublet, {reason}", 2,
+                           f"{left.strip()} | {right.strip()}"[:70]))
+    return _dedupe(out)
 
 
 def find(doc: Document) -> list[Run]:

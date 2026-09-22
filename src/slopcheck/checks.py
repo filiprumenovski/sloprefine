@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .cadence import has_finite_verb
 from .paragraph import closers, vague_paragraphs
+from .parallel import doublets as find_doublets
 from .parallel import find as find_parallel
 from .rules import LEXICON, RULES
 from .stylometry import STOPWORDS
@@ -140,6 +141,7 @@ def run_checks(
     allow_runts: frozenset[str] = frozenset(),
     parallel_budget_per_1k: float = 1.0,
     closer_budget_ratio: float = 0.25,
+    doublet_budget_per_1k: float = 2.0,
     vague_min_words: int = 40,
 ) -> list[Hit]:
     hits: list[Hit] = []
@@ -152,6 +154,8 @@ def run_checks(
             hits += check_runt(doc, floor, runt_mode, allow_runts)
         elif rule_id == "parallel":
             hits += check_parallel(doc, parallel_budget_per_1k)
+        elif rule_id == "doublet":
+            hits += check_doublet(doc, doublet_budget_per_1k)
         elif rule_id == "closer":
             hits += check_closer(doc, closer_budget_ratio)
         elif rule_id == "vague":
@@ -306,6 +310,20 @@ def check_parallel(doc: Document, budget_per_1k: float = 1.0) -> list[Hit]:
 
 
 CHECKS["parallel"] = check_parallel
+def check_doublet(doc: Document, budget_per_1k: float = 2.0) -> list[Hit]:
+    found = find_doublets(doc)
+    if not found:
+        return []
+    allowance = int(doc.word_count / 1000 * budget_per_1k)
+    over = sorted(found, key=lambda r: r.start)[allowance:]
+    return [
+        Hit("doublet", r.start, r.end, r.preview,
+            f"{r.level}, budget {budget_per_1k}/1k")
+        for r in over
+    ]
+
+
+CHECKS["doublet"] = check_doublet
 CHECKS["closer"] = check_closer
 CHECKS["vague"] = check_vague
 CHECKS["runt"] = check_runt

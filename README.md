@@ -202,7 +202,8 @@ case for technical prose.
 This layer also resolves the rule-of-three problem rather than banning it.
 Expert readers weighted rhetorical *variety*. The tool therefore measures
 `device_variety` alongside `device_concentration`, and complains when one
-device carries most of the work. The failure is not three items, it is three items every time.
+device carries most of the work. Three items is fine. Reaching for three items in every paragraph is
+what gives the game away.
 
 ### The audit: markers decay, so measure the decay
 

@@ -101,6 +101,11 @@ _rule(
         r"\bnot\s+(?:about|because of)\s+\w+[^.]{0,40},\s*(?:it'?s|but)\b",
         r"\bthis (?:is|was) not an?\b",
         r"\bit'?s not (?:a|an|the)\b[^.]{0,40}\bit'?s (?:a|an|the)\b",
+        # "This isn't a modification, it's a language."
+        (
+            r"\b(?:isn'?t|aren'?t|wasn'?t|weren'?t)\s+(?:a|an|the)\b[^.]{0,50},"
+            r"\s*(?:it'?s|they'?re|that'?s|it is)\b"
+        ),
     ),
 )
 
@@ -224,6 +229,18 @@ _rule(
     patterns=(
         r"\bfrom\s+[\w-]+(?:\s+[\w-]+){0,2}\s+to\s+[\w-]+(?:\s+[\w-]+){0,2}\b(?=[,.;])",
     ),
+)
+
+_rule(
+    id="doublet",
+    title="balanced pair over budget",
+    citation="[CL][PALV]",
+    severity="high",
+    why="Two units of near-equal length sharing a shape: anaphora, a "
+        "repeated opening, or an antithesis. The tell is balance, and "
+        "balance starts at two, not three.",
+    fix="Break the symmetry. Make one half longer, drop one half, or fold "
+        "the pair into a single clause.",
 )
 
 _rule(
