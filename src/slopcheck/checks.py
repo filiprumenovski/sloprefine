@@ -315,8 +315,18 @@ def check_doublet(doc: Document, budget_per_1k: float = 2.0) -> list[Hit]:
     found = find_doublets(doc)
     if not found:
         return []
+    # The allowance covers the MILDEST pairs, so the strongest are what gets
+    # reported. Sorting by position forgave whichever happened to come first,
+    # which is the same bug that gave the widest parallel run a free pass.
+    rank = {"repeated opening": 0, "anaphora": 1, "negated pair": 2,
+            "antithesis": 3}
+    def severity(run):
+        for key, value in rank.items():
+            if key in run.level:
+                return value
+        return 1
     allowance = int(doc.word_count / 1000 * budget_per_1k)
-    over = sorted(found, key=lambda r: r.start)[allowance:]
+    over = sorted(found, key=lambda r: (severity(r), r.start))[allowance:]
     return [
         Hit("doublet", r.start, r.end, r.preview,
             f"{r.level}, budget {budget_per_1k}/1k")

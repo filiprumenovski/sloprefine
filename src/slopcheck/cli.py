@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from . import voice as voice_mod
@@ -291,16 +292,6 @@ def _cmd_check(args) -> int:
     allow = set(config.allow) | {w.lower() for w in args.allow}
     if args.allow_domain_words:
         allow |= COMMONLY_LEGITIMATE
-    if args.profile:
-        from .punch import PROFILES, apply
-        config = apply(args.profile, config)
-        profile = PROFILES[args.profile]
-        if profile.pins:
-            from .calibration import Calibration
-            calibration = calibration or Calibration(
-                weights={}, enrichment={}, verdicts={})
-            calibration.pins = dict(profile.pins)
-
     config = Config(
         disabled=tuple(set(config.disabled) | set(args.disable)),
         allow=frozenset(allow),
@@ -325,7 +316,22 @@ def _cmd_check(args) -> int:
         z_threshold=args.z_threshold,
         audience=args.audience or config.audience,
         calibration=calibration,
+        doublet_budget_per_1k=config.doublet_budget_per_1k,
     )
+
+    # Applied LAST, over the finished config. Applying it earlier meant the
+    # Config rebuilt from args above silently discarded every profile setting
+    # whose field was not named there.
+    if args.profile:
+        from .punch import PROFILES, apply
+        config = apply(args.profile, config)
+        pins = PROFILES[args.profile].pins
+        if pins:
+            from .calibration import Calibration
+            calibration = calibration or Calibration(
+                weights={}, enrichment={}, verdicts={})
+            calibration.pins = dict(pins)
+            config = replace(config, calibration=calibration)
 
     results = []
     for path in args.paths:

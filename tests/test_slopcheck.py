@@ -1466,3 +1466,35 @@ def test_clean_control_is_not_representative_of_human_prose():
     clean = punch_mod.compute(Document((CORPUS / "clean_control.txt").read_text()))
     assert clean.punch < 0.10          # the fixture
     # real human median from the labelled corpus is ~0.21; this is not it
+
+
+def test_profile_settings_survive_config_construction(tmp_path, capsys, monkeypatch):
+    """Regression, and the worst bug in this package so far.
+
+    --profile talk was applied to a Config that was then rebuilt from the
+    parsed args, and only the fields named in that rebuild survived.
+    doublet_budget_per_1k was not among them, so the profile silently kept
+    the default budget of 2.0 and the founding example of the doublet rule,
+    "That isn't what's there, and it isn't a close call.", passed clean."""
+    monkeypatch.chdir(tmp_path)
+    f = tmp_path / "a.txt"
+    # the sentence floor is off by default and set to 5 by the talk profile,
+    # so it isolates "did the profile setting reach the checks"
+    f.write_text("One gene. " + (CORPUS / "clean_control.txt").read_text())
+    main([str(f), "--no-color", "--format", "agent"])
+    assert "[runt]" not in capsys.readouterr().out
+    main([str(f), "--profile", "talk", "--no-color", "--format", "agent"])
+    assert "[runt]" in capsys.readouterr().out
+
+
+def test_doublet_budget_forgives_the_mildest_pair():
+    """A repeated opening is milder than an antithesis, so the allowance is
+    spent there and the antithesis is what gets reported."""
+    text = ("I know this room, and I know what you're thinking. "
+            "That isn't what's there, and it isn't a close call. "
+            + (CORPUS / "clean_control.txt").read_text())
+    # budget chosen so the allowance is exactly one pair at this length
+    hits = [h for h in analyze("x.txt", text, Config(doublet_budget_per_1k=5.0)).hits
+            if h.rule_id == "doublet"]
+    assert len(hits) == 1
+    assert "negated pair" in hits[0].note
