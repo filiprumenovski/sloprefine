@@ -382,13 +382,20 @@ implementation if you want detection. This is a writing tool.
 ## MCP server
 
 ```bash
-pip install "sloprefine[mcp]"
-sloprefine-mcp
+uv tool install "sloprefine[mcp]"    # a binary that outlives any project venv
+claude mcp add --scope user sloprefine -- "$(which sloprefine-mcp)"
 ```
 
+For a host configured by file rather than by CLI, give the absolute path:
+
 ```json
-{"mcpServers": {"sloprefine": {"command": "sloprefine-mcp"}}}
+{"mcpServers": {"sloprefine": {"command": "/Users/you/.local/bin/sloprefine-mcp"}}}
 ```
+
+Use the absolute path rather than the bare name. A desktop host starts its
+servers from an environment it did not inherit from your shell, so
+`~/.local/bin` is usually missing from the PATH handed down, and the server
+dies with "command not found" before it can say anything more useful.
 
 Four tools: `check` returns PASS or the grouped fixes, `drift` compares two
 revisions and says whether the edit helped, `contract` returns the constraints
