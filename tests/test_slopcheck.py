@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from slopcheck import Document, analyze, compute
+from slopcheck import Document, analyze, compute, render_text
 from slopcheck.checks import CHECKS, run_checks
 from slopcheck.cli import main
 from slopcheck.report import Config
@@ -372,3 +372,138 @@ def test_colon_check_does_not_span_a_block_lead_in():
 
 def test_colon_check_ignores_decimal_points():
     assert "colon" not in ids("One effect: density falls by d = -3.10 overall")
+
+
+# --------------------------------------------------------------- v0.3: agent
+
+from slopcheck import agent
+
+
+def test_every_rule_carries_an_actionable_fix():
+    for rule in RULES.values():
+        assert rule.fix, rule.id
+        # An instruction, not a description: starts with a verb.
+        assert rule.fix.split()[0][0].isupper()
+
+
+def test_review_passes_clean_text():
+    text = (CORPUS / "clean_control.txt").read_text()
+    r = agent.review("clean.txt", text, CFG)
+    assert r.passed and r.render() == "PASS"
+
+
+def test_review_returns_a_fix_per_hit():
+    r = agent.review("x.txt", "We delve into the intricate realm.", CFG)
+    assert not r.passed
+    assert {i.rule for i in r.instructions} == {"vocab"}
+    assert all(i.fix == RULES["vocab"].fix for i in r.instructions)
+    assert r.render().startswith("FAIL 3")
+
+
+def test_agent_render_groups_by_rule_to_save_context():
+    text = "We delve. " * 8
+    out = agent.review("x.txt", text, CFG).render()
+    assert out.count(RULES["vocab"].fix) == 1
+    assert "[vocab] x" in out
+
+
+def test_agent_render_is_cheaper_when_hits_repeat():
+    """Grouping wins on real drafts, where a few rules fire many times. On a
+    tiny document where every rule fires exactly once the full fix sentences
+    dominate and the agent format is larger; that case is not worth
+    optimizing for."""
+    text = (CORPUS / "slop_control.txt").read_text() * 5
+    result = analyze("x.txt", text, CFG)
+    human = render_text(result, verbose=True, color=False)
+    machine = agent.review("x.txt", text, CFG).render()
+    assert len(machine) < len(human)
+
+
+def test_style_contract_covers_enabled_rules_only():
+    contract = agent.style_contract(disabled=("vocab",))
+    assert RULES["tricolon"].fix in contract
+    assert RULES["vocab"].fix not in contract
+    assert "epistemic position" in contract
+
+
+def test_style_contract_includes_voice_targets():
+    vp = voice.build(_corpus())
+    assert "measured baseline" in agent.style_contract(voice=vp)
+    assert "measured baseline" not in agent.style_contract()
+
+
+# ---------------------------------------------------------------- v0.3: drift
+
+SLOPPY = "One gene. One site. Many targets. Moreover, it delves into the realm."
+CLEANED = ("A single gene with one catalytic site reaches many targets, which "
+           "is the part nobody has explained yet.")
+
+
+def test_drift_reports_improvement():
+    d = agent.drift(SLOPPY, CLEANED, CFG)
+    assert d.hits_after < d.hits_before
+    assert d.verdict in {"improved", "traded"}
+
+
+def test_drift_detects_churn():
+    d = agent.drift(SLOPPY, SLOPPY, CFG)
+    assert d.verdict == "churned" and not d.improved
+
+
+def test_drift_detects_overfitting_past_zero():
+    clean = (CORPUS / "clean_control.txt").read_text()
+    d = agent.drift(clean, clean + " One more ordinary closing sentence here.", CFG)
+    assert d.verdict == "overfit"
+    assert any("optimize" in n for n in d.notes)
+
+
+def test_drift_flags_the_density_trade():
+    """The measured failure mode: fragments dissolved into flowing prose fix
+    the rule and add function words, which is the [SLH26] editing direction."""
+    before = "No order. No motif. No structure. " * 3
+    after = ("There was not any order to it, and there was not a motif in it, "
+             "and there was not much of a structure to any of it at all, as "
+             "far as we were able to tell from what we had in front of us. ")
+    d = agent.drift(before, after, CFG)
+    assert d.hits_after < d.hits_before
+    assert d.verdict == "traded"
+    assert any("function words" in n for n in d.notes)
+
+
+def test_drift_verdicts_are_exhaustive():
+    assert {"improved", "traded", "churned", "overfit"} >= {
+        agent.drift(a, b, CFG).verdict
+        for a, b in [(SLOPPY, CLEANED), (SLOPPY, SLOPPY)]
+    }
+
+
+# ------------------------------------------------------------ v0.3: cli glue
+
+def test_cli_agent_format(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    f = tmp_path / "a.txt"
+    f.write_text("We delve into the intricate realm of it.")
+    main([str(f), "--format", "agent"])
+    out = capsys.readouterr().out
+    assert out.startswith("FAIL")
+    assert RULES["vocab"].fix in out
+
+
+def test_cli_prompt_subcommand(capsys):
+    assert main(["prompt"]) == 0
+    assert "Rhythm:" in capsys.readouterr().out
+
+
+def test_cli_drift_exit_codes(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    a, b = tmp_path / "a.txt", tmp_path / "b.txt"
+    a.write_text(SLOPPY)
+    b.write_text(SLOPPY)
+    assert main(["drift", str(a), str(b)]) == 1            # churned
+    assert main(["drift", str(a), str(b), "--fail-on", "overfit"]) == 0
+
+
+def test_cli_drift_missing_file(tmp_path):
+    a = tmp_path / "a.txt"
+    a.write_text("text")
+    assert main(["drift", str(a), str(tmp_path / "nope.txt")]) == 2

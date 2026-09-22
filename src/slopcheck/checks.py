@@ -173,13 +173,17 @@ def check_opener(doc: Document) -> list[Hit]:
             run.append(span)
             continue
         if len(run) >= OPENER_RUN and run[0].words[0].lower() not in boring:
-            hits.append(Hit("opener", run[0].start, run[-1].end,
-                            f"{len(run)} sentences opening '{run[0].words[0]}'"))
+            hits.append(_opener_hit(run))
         run = [span] if word else []
     if len(run) >= OPENER_RUN and run[0].words[0].lower() not in boring:
-        hits.append(Hit("opener", run[0].start, run[-1].end,
-                        f"{len(run)} sentences opening '{run[0].words[0]}'"))
+        hits.append(_opener_hit(run))
     return hits
+
+
+def _opener_hit(run: list) -> Hit:
+    preview = run[0].text[:34] + ("..." if len(run[0].text) > 34 else "")
+    return Hit("opener", run[0].start, run[-1].end,
+               f"{len(run)}x '{run[0].words[0]}' from \"{preview}\"")
 
 
 def check_template(doc: Document) -> list[Hit]:

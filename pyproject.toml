@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "slopcheck"
-version = "0.2.0"
-description = "Lint prose against published AI-writing tells."
+version = "0.3.0"
+description = "Prose linter for model write-check-revise loops."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Filip Rumenovski" }]
-keywords = ["writing", "linter", "llm", "style", "prose"]
+keywords = ["writing", "linter", "llm", "style", "prose", "agents", "evals"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",

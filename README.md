@@ -1,46 +1,67 @@
 # slopcheck
 
-A linter for prose, in the spirit of `clippy` or `ruff`, except the lints are
-the published markers of machine-generated writing.
+A linter for prose, in the spirit of `clippy` or `ruff`, built to sit inside a
+model's own write-check-revise loop.
 
-It will not tell you whether an LLM wrote something. That question cannot be
-answered from the text alone, and the tools claiming to answer it ruin people
-for a living. `slopcheck` answers a narrower question: **which specific spans
-in this draft carry the patterns readers have learned to distrust, and how far
-has this draft drifted from the way you normally write.**
+The markers of machine-generated writing are documented in a dozen papers and
+a hundred blog posts. A model can be told to avoid them up front, and its
+output can be checked against them afterwards. Neither step needs a human in
+the middle, and neither step needs a detector making claims about authorship.
 
-Three layers, in increasing order of how much they can tell you and how wrong
-they can be:
+```bash
+# 1. constrain generation
+slopcheck prompt --voice me.json > .style-contract
 
-1. **Rules.** Sixteen lexical and structural checks, each citing the study or
-   write-up it came from, each pointing at a line and an offset.
-2. **Stylometry.** Model-free features from the AI-detection literature,
+# 2. check the output, get imperative fixes back
+slopcheck check draft.md --format agent
+
+# 3. decide whether the revision actually helped
+slopcheck drift draft.md draft.v2.md
+```
+
+Step 3 is the one people skip, and the reason this repository exists at all.
+Optimizing a draft toward zero hits does not monotonically improve it. On the
+revision this tool was built for, rule hits fell from 24 to 1 while lexical
+density fell 0.530 to 0.493, which is the direction Shan et al. measure for
+AI-*edited* text. Dissolving fragment stacks into flowing sentences adds
+function words by construction. Trading one measured marker for another is not
+progress, so the loop needs something to stop on besides zero.
+
+```
+$ slopcheck check talk.txt --format agent
+FAIL 22
+[fragments] x9: Join at least two of the fragments into one longer sentence. Vary the lengths deliberately.
+  L5 Specificity lives in the enzyme. / OGT breaks that. / One gene. / O...
+  L11 We tested that. / It's wrong. / And it isn't close.
+  L15 Same proteins. / Same residue types. / Matched null.
+  ... 6 more
+[narrator] x5: Delete the announcement and let the point land unannounced.
+  L17 That's the paradox
+  L25 Here is the test
+[tricolon] x4: Use two items or four, or dissolve the list into a clause.
+  L23 No order. No motif. No structure.
+! 9 consecutive sentences of near-identical length; break the metronome
+
+$ slopcheck drift talk.txt talk.v2.txt
+TRADED hits 22->1 density 0.530->0.493
+! lexical density fell 0.037 while fixing 21 hit(s): the revision added
+  function words. [SLH26] measures that drop as the AI-editing signature
+```
+
+Output is grouped by rule so the fix instruction is emitted once rather than
+once per hit: 1,543 characters for the agent format against 2,842 for the
+human report and 7,636 for JSON, on the same document.
+
+Three layers under the hood:
+
+1. **Rules.** Sixteen lexical and structural checks, each citing its source,
+   each carrying an imperative fix a model can act on.
+2. **Stylometry.** Model-free features from the detection literature,
    reported with no thresholds attached.
-3. **Voiceprints.** A baseline built from your own prior writing, against
-   which a draft is scored in standard deviations. This is the layer that
-   makes the stylometry mean anything.
-
-```
-$ slopcheck talk.txt --voice me.json
-talk.txt  (1297 words)
-  ok  LLM excess vocabulary                0  [K25][JW25][LHF][WP]
-  HIT tricolon / triad rhythm              1  [CL][PALV][GK]
-       L23  No order, no motif, no structure. (anaphora x3)
-  ok  fragment stack (TED cadence)         0  [FB]
-  ...
-  ------------------------------------------------------------
-  sentences=92  mean=14.1w  sd=8.0  CV=0.57  flat-run=4
-  short<=7w 24%   long>=25w 13%   footprint=14 (10.79/1k words)
-  ------------------------------------------------------------
-  stylometry (value, deviation from your voiceprint)
-    lexical diversity            0.8199    +0.4s
-    entropy (norm)               0.8808    -0.6s
-    lexical density              0.4927    -2.4s
-  voice lexical density -2.4sigma below your baseline: more function words per
-        content word than you normally write. [SLH26] reports this pair as the
-        AI-editing signature
-  total 1  (0.77 per 1k words)
-```
+3. **Voiceprints.** A baseline built from your own writing. In a generation
+   loop this is a *target*, not a defense: `slopcheck prompt --voice me.json`
+   puts your measured sentence length, lexical density and contraction rate
+   in front of the model before it writes a word.
 
 ## Install
 
@@ -123,7 +144,8 @@ Two implementation departures from the paper, both deliberate:
 
 ```bash
 slopcheck voice build ~/writing/published -o me.json
-slopcheck draft.md --voice me.json
+slopcheck prompt --voice me.json          # targets, before generation
+slopcheck check draft.md --voice me.json  # deviations, after
 ```
 
 A voiceprint is the robust center and spread (median and MAD) of each feature
@@ -174,6 +196,49 @@ Fenced code blocks in Markdown are exempt by default, and anything between
 `<!-- slopcheck: off -->` and `<!-- slopcheck: on -->` is skipped, so
 documentation that quotes the patterns does not fail its own lint. CI asserts
 that this README scores zero.
+
+## Wiring it into an agent
+
+Exit codes are the interface: `check` returns 1 over threshold, `drift`
+returns 1 on `churned`, `overfit` or `traded` by default.
+
+```bash
+#!/usr/bin/env bash
+# revise.sh: loop with a stop condition that is not "zero hits"
+cp draft.md work.md
+for round in 1 2 3; do
+  slopcheck check work.md --format agent > feedback.txt || true
+  grep -q '^PASS$' feedback.txt && break
+  your-model --instructions feedback.txt --input work.md --output next.md
+  if ! slopcheck drift work.md next.md; then
+    echo "round $round did not improve the draft; keeping the previous version"
+    break
+  fi
+  mv next.md work.md
+done
+```
+
+Three rounds is the hard ceiling in `agent.MAX_ROUNDS`, and the reason is the
+trade above: past a couple of passes the model is writing for the linter.
+
+As a library:
+
+```python
+import slopcheck
+
+review = slopcheck.review("draft.md", text)
+if not review.passed:
+    feedback = review.render()          # grouped, imperative, compact
+    revised = my_model(text, feedback)
+    d = slopcheck.drift(text, revised)
+    text = revised if d.improved else text
+```
+
+For a persistent agent config, put the contract where the model reads it:
+
+```bash
+slopcheck prompt --voice me.json >> AGENTS.md
+```
 
 ## A worked example, including the embarrassing part
 

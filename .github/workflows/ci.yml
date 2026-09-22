@@ -21,7 +21,9 @@ jobs:
       - run: ruff check .
       - name: dogfood (the docs must pass their own linter)
         run: slopcheck README.md CONTRIBUTING.md --no-color
-      - name: voiceprint smoke test
+      - name: agent surfaces smoke test
         run: |
-          slopcheck voice build corpus -o /tmp/voice.json || true
           slopcheck rules
+          slopcheck prompt > /dev/null
+          slopcheck check corpus/slop_control.txt --format agent || true
+          slopcheck drift corpus/slop_control.txt corpus/clean_control.txt || true

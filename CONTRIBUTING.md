@@ -2,6 +2,12 @@
 
 ## Adding a rule
 
+Every rule needs a `fix`: one imperative sentence a model can act on without
+reading the rationale. `why` explains the rule to a person; `fix` is what gets
+shipped into the revision loop and into `slopcheck prompt`. A test asserts
+every rule has one.
+
+
 Every rule needs a source. Not a vibe, a source: a study, a corpus analysis, or
 a written argument someone put their name on. Add the short key and full
 reference to the docstring at the top of `src/slopcheck/rules.py`, then declare

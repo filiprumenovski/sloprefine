@@ -39,6 +39,7 @@ class Rule:
     citation: str
     severity: str = "medium"  # high | medium | low
     why: str = ""
+    fix: str = ""  # imperative instruction for a revising model
     patterns: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -71,6 +72,7 @@ _rule(
     citation="[K25][JW25][LHF][WP]",
     severity="high",
     why="Words whose frequency spiked in post-2022 text with no other cause.",
+    fix="Replace with the plainest word that carries the meaning. Do not substitute another word from the same register.",
 )
 
 _rule(
@@ -79,6 +81,7 @@ _rule(
     citation="[AE][PALV]",
     severity="medium",
     why="The 'ChatGPT dash'. A comma or full stop usually does the job.",
+    fix="Use a comma, a full stop, or parentheses.",
     patterns=(r"[\u2014\u2013]", r"(?<=\s)-{2,}(?=\s)"),
 )
 
@@ -88,6 +91,7 @@ _rule(
     citation="[PALV][CL]",
     severity="high",
     why="'Not just X, but Y'. Effective once, formulaic on repeat.",
+    fix="State the positive claim directly. Delete the negated half.",
     patterns=(
         r"\b(?:is|it'?s|this is|that'?s)\s+not\s+(?:just|only|merely|simply)\b",
         r"\b(?:isn'?t|aren'?t|wasn'?t|doesn'?t|don'?t)\s+(?:just|only|merely|simply)\b",
@@ -104,6 +108,7 @@ _rule(
     citation="[CL][PALV][GK]",
     severity="high",
     why="Groups of three chosen for cadence rather than because there are three.",
+    fix="Use two items or four, or dissolve the list into a clause. Keep only items that carry distinct information.",
 )
 
 _rule(
@@ -112,6 +117,7 @@ _rule(
     citation="[FB]",
     severity="medium",
     why="Three or more very short sentences in a row, building to a punchline.",
+    fix="Join at least two of the fragments into one longer sentence. Vary the lengths deliberately.",
 )
 
 _rule(
@@ -120,6 +126,7 @@ _rule(
     citation="[WP][GK]",
     severity="medium",
     why="Connectives that exist to look organized.",
+    fix="Delete the connective. If the logical link is unclear without it, rewrite the sentence.",
     patterns=(
         r"\bmoreover\b", r"\bfurthermore\b", r"\bconsequently\b",
         r"\bin addition,", r"\badditionally\b", r"\bnotably,",
@@ -136,6 +143,7 @@ _rule(
     citation="[PALV][FB]",
     severity="high",
     why="Announcing the rhetorical move instead of making it.",
+    fix="Delete the announcement and let the point land unannounced.",
     patterns=(
         r"\bhere'?s the thing\b",
         r"\bhere (?:is|are) the (?:test|point|part|result|kicker)\b",
@@ -156,6 +164,7 @@ _rule(
     citation="[GK][K25]",
     severity="medium",
     why="', highlighting the importance of...' tacked onto a finished sentence.",
+    fix="Cut the trailing clause or promote it to its own sentence with a subject.",
     patterns=(
         (
             r",\s+(?:highlighting|underscoring|showcasing|demonstrating|reflecting|"
@@ -171,6 +180,7 @@ _rule(
     citation="[PALV]",
     severity="low",
     why="Setup colon, then the payoff. Fine once per document.",
+    fix="Fold the payoff into the sentence, or split into two sentences without the colon.",
 )
 
 _rule(
@@ -179,6 +189,7 @@ _rule(
     citation="[PALV]",
     severity="medium",
     why="Opening a section with a question instead of stating the point.",
+    fix="Open with the claim. Delete the question.",
 )
 
 _rule(
@@ -187,6 +198,7 @@ _rule(
     citation="[PALV]",
     severity="medium",
     why="Restating what was just said, in the same words.",
+    fix="Delete the recap. The reader just read it.",
     patterns=(
         r"\bin (?:short|summary|other words)\b",
         r"\bto (?:recap|summarize|summarise|sum up)\b",
@@ -200,6 +212,7 @@ _rule(
     citation="[WP]",
     severity="low",
     why="Caveats that carry no information.",
+    fix="Delete the hedge, or replace it with the specific uncertainty it is standing in for.",
     patterns=(
         r"\bit'?s important to (?:note|remember|understand)\b",
         r"\bthat said,", r"\bthat being said\b",
@@ -214,6 +227,7 @@ _rule(
     citation="[AE]",
     severity="medium",
     why="A stock way to gesture at breadth without naming anything.",
+    fix="Name the specific cases instead of gesturing at a range.",
     patterns=(
         r"\bfrom\s+[\w-]+(?:\s+[\w-]+){0,2}\s+to\s+[\w-]+(?:\s+[\w-]+){0,2}\b(?=[,.;])",
     ),
@@ -225,6 +239,7 @@ _rule(
     citation="[GK][KUM23]",
     severity="medium",
     why="Three or more consecutive sentences starting with the same word.",
+    fix="Rewrite at least one sentence to begin differently. Vary the subject position.",
 )
 
 _rule(
@@ -233,6 +248,7 @@ _rule(
     citation="[KUM23][WP]",
     severity="medium",
     why="The same 4-word frame reused; n-gram repetition is a known marker.",
+    fix="Rephrase all but one occurrence. Reuse of a frame reads as filler.",
 )
 
 _rule(
@@ -241,6 +257,7 @@ _rule(
     citation="[WP]",
     severity="low",
     why="Section-marker emoji in prose.",
+    fix="Remove.",
 )
 
 

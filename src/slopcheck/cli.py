@@ -36,7 +36,10 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("paths", nargs="*", help="files to check; - for stdin")
     p.add_argument("-q", "--quiet", action="store_true",
                    help="counts only, no matched spans")
-    p.add_argument("--json", action="store_true")
+    p.add_argument("--format", choices=("text", "json", "agent"), default="text",
+                   help="agent: compact PASS/FAIL plus imperative fixes, for "
+                        "a model revising its own draft")
+    p.add_argument("--json", action="store_true", help="alias for --format json")
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--disable", action="append", default=[], metavar="RULE")
     p.add_argument("--allow", action="append", default=[], metavar="WORD")
@@ -55,7 +58,7 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--max-per-1k", type=float, metavar="X")
 
 
-COMMANDS = ("check", "voice", "rules")
+COMMANDS = ("check", "voice", "rules", "prompt", "drift")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -137,6 +140,54 @@ def _cmd_voice(args) -> int:
     return 0
 
 
+def _cmd_prompt(argv: list[str]) -> int:
+    from .agent import style_contract
+    p = argparse.ArgumentParser(
+        prog="slopcheck prompt",
+        description="Emit the rules as generation-time constraints. Put this "
+                    "in front of the model instead of fixing the output.")
+    p.add_argument("--disable", action="append", default=[], metavar="RULE")
+    p.add_argument("--voice", metavar="FILE")
+    args = p.parse_args(argv)
+    voiceprint = None
+    if args.voice:
+        try:
+            voiceprint = voice_mod.Voiceprint.load(args.voice)
+        except (OSError, ValueError) as exc:
+            print(f"slopcheck: voiceprint: {exc}", file=sys.stderr)
+            return 2
+    print(style_contract(disabled=tuple(args.disable), voice=voiceprint))
+    return 0
+
+
+def _cmd_drift(argv: list[str]) -> int:
+    from .agent import drift
+    p = argparse.ArgumentParser(
+        prog="slopcheck drift",
+        description="Compare two revisions. Tells you whether the edit "
+                    "improved the draft or just traded one marker for another.")
+    p.add_argument("before")
+    p.add_argument("after")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--fail-on", default="churned,overfit,traded", metavar="LIST",
+                   help="comma-separated verdicts that exit 1 "
+                        "(default: churned,overfit,traded)")
+    args = p.parse_args(argv)
+    for path in (args.before, args.after):
+        if not Path(path).is_file():
+            print(f"slopcheck: no such file: {path}", file=sys.stderr)
+            return 2
+    d = drift(Path(args.before).read_text(encoding="utf-8"),
+              Path(args.after).read_text(encoding="utf-8"),
+              Config.load())
+    if args.json:
+        import json
+        print(json.dumps(d.as_dict(), indent=2))
+    else:
+        print(d.render())
+    return 1 if d.verdict in {v.strip() for v in args.fail_on.split(",")} else 0
+
+
 def _cmd_check(args) -> int:
     if not args.paths:
         print("slopcheck: no input files", file=sys.stderr)
@@ -185,7 +236,12 @@ def _cmd_check(args) -> int:
     if args.lm:
         _report_lm(results, args.lm)
 
-    if args.json:
+    fmt = "json" if args.json else args.format
+    if fmt == "agent":
+        from .agent import review
+        print("\n\n".join(
+            review(r.path, r.text, config).render() for r in results))
+    elif fmt == "json":
         print(render_json(results))
     else:
         color = sys.stdout.isatty() and not args.no_color
@@ -216,6 +272,20 @@ def _report_lm(results, model_name: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        return _main(argv)
+    except BrokenPipeError:
+        # Piped into head/less. Silence the flush-on-exit traceback.
+        try:
+            sys.stdout.close()
+        except BrokenPipeError:
+            pass
+        return 0
+    except KeyboardInterrupt:
+        return 130
+
+
+def _main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     command = argv[0] if argv and argv[0] in COMMANDS else "check"
     if argv and argv[0] in COMMANDS:
@@ -223,6 +293,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "rules":
         return _cmd_rules()
+    if command == "prompt":
+        return _cmd_prompt(argv)
+    if command == "drift":
+        return _cmd_drift(argv)
     if command == "voice":
         return _cmd_voice(build_voice_parser().parse_args(argv))
 
