@@ -11,11 +11,9 @@ Method
         in model output are traceable to pretraining data against 35% for
         human text, and that RLHF does not remove them.
 
-Every rule in this package enumerates one shape. This measures the shape
-vocabulary as a whole, which is the general case: doublets, triads, repeated
-openers and fragment stacks are all instances of "the text reuses a small set
-of structures", and a compression ratio sees all of them without being told
-what any of them look like.
+This measures the shape vocabulary of a whole document. It is NOT the general
+case of the shape rules, which was the first thing assumed about it here and
+is measured false below.
 
 Deriving the tagger
 -------------------
@@ -66,6 +64,27 @@ against the same shuffled baseline. Same quantity, no compression middleman,
 and it separates:
 
     n=4   slop control 3.33   clean control 1.56   R0 1.90   R2 1.76
+
+It does not subsume the local rules. Measured
+----------------------------------------------
+The claim this module was built on was that doublets, triads, repeated openers
+and fragment stacks are all instances of "the text reuses a small set of
+structures", so a document-level redundancy statistic should see them all
+without being told what any of them look like. That is false, and cheap to
+check. Taking the talk this repository was built around, which has eight
+doublets, and breaking seven of them by hand:
+
+    with 8 doublets     structure 1.884   repeat_4 0.0950
+    7 of 8 broken       structure 1.884   repeat_4 0.0967
+
+No change, and the second number moved the wrong way. The arithmetic is plain
+once looked at: a doublet is two occurrences of a roughly four-token pattern,
+eight of them are about 1% of the 4-gram mass in a 1250-token document, and
+9.5% of that document's 4-grams already repeat because that is what English
+function-word syntax does. The base rate swamps it.
+
+Local constructions need local detectors. A document statistic and a span
+rule measure different things, and neither subsumes the other. Keep both.
 
 Scope, stated plainly
 ---------------------

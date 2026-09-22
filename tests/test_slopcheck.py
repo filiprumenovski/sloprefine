@@ -1260,3 +1260,28 @@ def test_template_reuse_is_a_generation_signal_not_an_editing_one():
     b = templates.compute(Document(
         pathlib.Path(CORPUS / "clean_control.txt").read_text().replace(". ", ".\n\n")))
     assert abs(a.repeat_4 - b.repeat_4) < 0.02
+
+
+def test_document_redundancy_does_not_subsume_local_shape_rules():
+    """The assumption templates.py was built on, measured and false.
+
+    A doublet is two occurrences of a ~4-token pattern. Eight of them are
+    about 1% of the 4-gram mass in a 1250-token document, against a baseline
+    where ~9.5% of 4-grams already repeat because that is what English
+    function-word syntax does. The base rate swamps the construction.
+
+    If this ever starts failing, the document statistic has become sensitive
+    enough to see local shape and parallel.py can be reconsidered."""
+    balanced = ("That isn't what's there, and it isn't a close call. "
+                "Same proteins. Same residue types. "
+                "You didn't test the modification. You tested one residue. ")
+    broken = ("That isn't what's there, and the gap is wide. "
+              "The proteins match, and so do the residue types. "
+              "What you probed was a single residue, not the modification. ")
+    carrier = (CORPUS / "clean_control.txt").read_text()
+
+    with_doublets = templates.compute(Document(balanced + carrier))
+    without = templates.compute(Document(broken + carrier))
+    assert len(parallel.doublets(Document(balanced + carrier))) > \
+        len(parallel.doublets(Document(broken + carrier)))
+    assert abs(with_doublets.repeat_4 - without.repeat_4) < 0.03
