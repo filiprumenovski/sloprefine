@@ -138,13 +138,15 @@ how confident claims need specifics.
 ## Install
 
 ```bash
-pip install -e ".[dev]"
+pip install sloprefine
 sloprefine draft.md
 ```
 
-This needs Python 3.11 or newer and has no runtime dependencies. The
-optional `lm` extra pulls in `transformers` and `torch`, and nothing else
-needs them.
+This needs Python 3.11 or newer and has no runtime dependencies. Three
+optional extras exist and nothing in the core path needs any of them: `mcp`
+for the server, `lm` for the perplexity layer, which pulls in `transformers`
+and `torch`, and `dev` for the test suite. To work on the package itself,
+clone it and run `pip install -e ".[dev,mcp]"` instead.
 
 ## The three layers
 
