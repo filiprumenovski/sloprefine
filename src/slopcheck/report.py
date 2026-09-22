@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import metrics as metrics_mod
+from . import stylometry as stylometry_mod
+from . import voice as voice_mod
 from .checks import Hit, run_checks
 from .rules import RULES
 from .text import Document, markdown_furniture, mask, suppressed_ranges
@@ -22,6 +24,9 @@ class Config:
     max_hits: int | None = None
     max_per_1k: float | None = None
     skip_code_blocks: bool = True
+    voice: voice_mod.Voiceprint | None = None
+    voice_path: str | None = None
+    z_threshold: float = 2.0
 
     @classmethod
     def load(cls, start: Path | None = None) -> Config:
@@ -45,6 +50,7 @@ class Config:
             max_hits=data.get("max_hits"),
             max_per_1k=data.get("max_per_1k"),
             skip_code_blocks=data.get("skip_code_blocks", True),
+            voice_path=data.get("voice"),
         )
 
 
@@ -54,6 +60,9 @@ class Result:
     text: str = field(repr=False, default="")
     hits: list[Hit] = field(default_factory=list)
     metrics: metrics_mod.Metrics | None = None
+    style: stylometry_mod.Stylometry | None = None
+    deviations: dict[str, float] = field(default_factory=dict)
+    voice_notes: list[str] = field(default_factory=list)
 
     @property
     def total(self) -> int:
@@ -81,10 +90,29 @@ def analyze(path: str, text: str, config: Config) -> Result:
         regions += markdown_furniture(text)
     doc = Document(mask(text, regions), path)
     hits = run_checks(doc, disabled=config.disabled, allow=config.allow)
-    return Result(path=path, text=text, hits=hits, metrics=metrics_mod.compute(doc))
+    style = stylometry_mod.compute(doc)
+    deviations, notes = {}, []
+    if config.voice is not None:
+        deviations = config.voice.compare(style)
+        notes = voice_mod.interpret(deviations, threshold=config.z_threshold)
+    return Result(
+        path=path, text=text, hits=hits, metrics=metrics_mod.compute(doc),
+        style=style, deviations=deviations, voice_notes=notes,
+    )
 
 
 # ------------------------------------------------------------------ render
+
+_STYLE_ROWS = [
+    ("lexical diversity", "lexical_diversity"),
+    ("entropy (norm)", "entropy_norm"),
+    ("lexical density", "lexical_density"),
+    ("word burstiness", "word_burstiness"),
+    ("punctuation", "pct_punctuation"),
+    ("contractions /1k", "contraction_rate"),
+    ("opener diversity", "opener_diversity"),
+    ("gunning fog", "gunning_fog"),
+]
 
 BOLD, DIM, RED, YELLOW, GREEN, RESET = (
     "\033[1m", "\033[2m", "\033[31m", "\033[33m", "\033[32m", "\033[0m",
@@ -126,6 +154,23 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
         f"  short<=7w {m.pct_short:.0%}   long>=25w {m.pct_long:.0%}   "
         f"footprint={m.footprint} ({m.footprint_per_1k}/1k words)"
     )
+    s = result.style
+    if s is not None:
+        out.append("  " + "-" * 60)
+        if result.deviations:
+            out.append("  " + c(DIM, "stylometry (value, deviation from your voiceprint)"))
+            for label, key in _STYLE_ROWS:
+                value = getattr(s, key)
+                z = result.deviations.get(key)
+                zs = "     " if z is None else f"{z:+5.1f}s"
+                flag = c(YELLOW, zs) if z is not None and abs(z) >= 2 else c(DIM, zs)
+                out.append(f"    {label:<22} {value:>9}   {flag}")
+        else:
+            out.append("  " + c(DIM, "stylometry (no voiceprint: values only, no judgement)"))
+            for label, key in _STYLE_ROWS:
+                out.append(f"    {label:<22} {getattr(s, key):>9}")
+    for note in result.voice_notes:
+        out.append("  " + c(YELLOW, "voice ") + note)
     for w in m.warnings():
         out.append("  " + c(YELLOW, "warn ") + w)
     total_color = GREEN if result.total == 0 else RED
@@ -145,6 +190,9 @@ def render_json(results: list[Result]) -> str:
             "per_1k": r.per_1k,
             "counts": r.counts(),
             "metrics": r.metrics.as_dict(),
+            "stylometry": r.style.as_dict() if r.style else {},
+            "deviations": r.deviations,
+            "voice_notes": r.voice_notes,
             "warnings": r.metrics.warnings(),
             "hits": [
                 {

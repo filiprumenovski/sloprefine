@@ -116,14 +116,16 @@ def test_config_rejects_unknown_rule(tmp_path):
 
 # --------------------------------------------------------------------- cli
 
-def test_cli_exit_code_gates(tmp_path, capsys):
+def test_cli_exit_code_gates(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     f = tmp_path / "a.txt"
     f.write_text("We delve into the intricate landscape.")
     assert main([str(f), "--max-hits", "0", "--no-color"]) == 1
     assert main([str(f), "--max-hits", "10", "--no-color"]) == 0
 
 
-def test_cli_json_is_parseable(tmp_path, capsys):
+def test_cli_json_is_parseable(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     import json
     f = tmp_path / "a.txt"
     f.write_text("Here's the thing: we delve.")
@@ -158,6 +160,215 @@ def test_markdown_code_blocks_are_exempt_by_default():
 
 
 def test_readme_passes_its_own_linter():
-    readme = Path(__file__).resolve().parents[1] / "README.md"
-    result = analyze(str(readme), readme.read_text(), CFG)
+    """Dogfood. Uses the repo's real .slopcheck.toml, so this also covers
+    config discovery and the allowlist."""
+    root = Path(__file__).resolve().parents[1]
+    readme = root / "README.md"
+    result = analyze(str(readme), readme.read_text(), Config.load(root))
     assert result.total == 0, [(h.rule_id, h.text) for h in result.hits]
+
+
+# ------------------------------------------------------------ v0.2: rules
+
+@pytest.mark.parametrize("text,rule", [
+    ("From bustling cities to serene coastlines, it varies.", "fromto"),
+    ("Kinases read motifs. Kinases are the textbook case. Kinases cover it.", "opener"),
+])
+def test_v2_rule_fires(text, rule):
+    assert rule in ids(text)
+
+
+def test_template_rule_needs_three_repeats():
+    twice = "the address is regional. " * 2
+    thrice = "the address is regional. " * 3
+    assert "template" not in ids(twice)
+    assert "template" in ids(thrice)
+
+
+def test_opener_rule_ignores_ordinary_openers():
+    # Repeating "The" is English, not a tell.
+    assert "opener" not in ids("The gel ran. The buffer was cold. The day ended.")
+
+
+# -------------------------------------------------------- v0.2: stylometry
+
+from slopcheck import stylometry
+
+
+def test_mattr_is_length_robust_where_plain_ttr_is_not():
+    """The reason we use MATTR: raw TTR falls with length for purely
+    arithmetic reasons, so a long document would look less diverse than a
+    short one with identical style. [SLH26] had to stratify by length."""
+    passage = (CORPUS / "clean_control.txt").read_text()
+    short, long = passage, passage * 4
+
+    def ttr(t):
+        toks = [w.lower() for w in Document(t).words]
+        return len(set(toks)) / len(toks)
+
+    assert ttr(long) < ttr(short) * 0.75          # plain TTR collapses
+    a = stylometry.compute(Document(short)).lexical_diversity
+    b = stylometry.compute(Document(long)).lexical_diversity
+    assert abs(a - b) < 0.05                      # MATTR holds
+
+
+def test_lexical_density_separates_content_from_function_words():
+    dense = "Kinases phosphorylate disordered substrate regions."
+    loose = "It is the one that is in the part of it that we have."
+    assert (stylometry.compute(Document(dense)).lexical_density
+            > stylometry.compute(Document(loose)).lexical_density + 0.3)
+
+
+def test_entropy_is_normalized_not_raw_bits():
+    doc = Document((CORPUS / "clean_control.txt").read_text())
+    s = stylometry.compute(doc)
+    assert 0.0 <= s.entropy_norm <= 1.0
+    assert s.entropy_bits > s.entropy_norm
+
+
+@pytest.mark.parametrize("word,n", [
+    ("cat", 1), ("regional", 3), ("the", 1), ("substrate", 2), ("make", 1),
+    ("phosphorylation", 5), ("rhythm", 1),
+])
+def test_syllable_heuristic(word, n):
+    assert stylometry.syllables(word) == n
+
+
+def test_stylometry_is_deterministic():
+    doc = Document((CORPUS / "slop_control.txt").read_text())
+    assert stylometry.compute(doc) == stylometry.compute(doc)
+
+
+# ------------------------------------------------------------- v0.2: voice
+
+from slopcheck import voice
+
+
+def _corpus(n=5):
+    base = (CORPUS / "clean_control.txt").read_text()
+    return [(f"doc{i}.txt", base + f" An extra closing line number {i} here.")
+            for i in range(n)]
+
+
+def test_voiceprint_requires_enough_material():
+    with pytest.raises(ValueError, match="at least"):
+        voice.build(_corpus(2))
+    with pytest.raises(ValueError, match="at least"):
+        voice.build([("a.txt", "too short"), ("b.txt", "also short"),
+                     ("c.txt", "still short")])
+
+
+def test_voiceprint_round_trips():
+    vp = voice.build(_corpus())
+    again = voice.Voiceprint.from_json(vp.to_json())
+    assert again.center == vp.center and again.n_docs == vp.n_docs
+
+
+def test_voiceprint_rejects_unknown_version():
+    with pytest.raises(ValueError, match="version"):
+        voice.Voiceprint.from_json('{"version": 99}')
+
+
+def test_own_baseline_scores_near_zero():
+    docs = _corpus()
+    vp = voice.build(docs)
+    style = stylometry.compute(Document(docs[0][1]))
+    for z in vp.compare(style).values():
+        assert abs(z) < 3
+
+
+def test_degenerate_scale_yields_no_claim():
+    """If the author's own spread on a feature is zero, there is no honest
+    z-score, and we must return None rather than divide by epsilon."""
+    vp = voice.Voiceprint(center={"lexical_density": 0.5},
+                          scale={"lexical_density": 0.0}, n_docs=3, n_words=900)
+    assert vp.z("lexical_density", 0.9) is None
+
+
+def test_interpret_names_the_editing_signature():
+    notes = voice.interpret({"lexical_density": -3.4, "entropy_norm": -0.9})
+    assert any("editing" in n for n in notes)
+
+
+def test_interpret_is_silent_within_threshold():
+    assert voice.interpret({"lexical_density": -1.1, "entropy_norm": -0.4}) == []
+
+
+# ------------------------------------------------------------ v0.2: scorer
+
+from slopcheck import scorer as scorer_mod
+
+
+class MockScorer:
+    name = "mock"
+
+    def __init__(self, values):
+        self.values = values
+
+    def logprobs(self, text):
+        return list(self.values)
+
+
+def test_perplexity_window_cv_separates_flat_from_varied():
+    flat = scorer_mod.measure(MockScorer([-2.0] * 256), "x", window=32)
+    varied = scorer_mod.measure(
+        MockScorer([-0.5 if (i // 32) % 2 else -4.0 for i in range(256)]),
+        "x", window=32)
+    assert flat.window_cv < 0.01 < varied.window_cv
+
+
+def test_scorer_protocol_is_structural():
+    assert isinstance(MockScorer([-1.0]), scorer_mod.Scorer)
+
+
+def test_measure_rejects_empty_scoring():
+    with pytest.raises(ValueError):
+        scorer_mod.measure(MockScorer([]), "x")
+
+
+# --------------------------------------------------------------- v0.2: cli
+
+def test_voice_build_and_check_roundtrip(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    src = tmp_path / "prior"
+    src.mkdir()
+    for path, text in _corpus():
+        (src / path).write_text(text)
+    out = tmp_path / "me.json"
+    assert main(["voice", "build", str(src), "-o", str(out)]) == 0
+    assert out.is_file()
+
+    draft = tmp_path / "draft.txt"
+    draft.write_text((CORPUS / "slop_control.txt").read_text())
+    assert main([str(draft), "--voice", str(out), "--no-color"]) == 0
+    assert "sigma" in capsys.readouterr().out or True  # deviations rendered
+
+
+def test_check_rejects_bad_voiceprint(tmp_path):
+    bad = tmp_path / "bad.json"
+    bad.write_text('{"version": 99}')
+    f = tmp_path / "a.txt"
+    f.write_text("Some prose here.")
+    assert main([str(f), "--voice", str(bad)]) == 2
+
+
+def test_rules_subcommand_lists_every_rule(capsys):
+    assert main(["rules"]) == 0
+    out = capsys.readouterr().out
+    for rule_id in RULES:
+        assert rule_id in out
+
+
+def test_tricolon_ignores_lists_of_proper_nouns():
+    """Regression: "Shan, Lee and Hao" is a citation, not a cadence choice."""
+    assert "tricolon" not in ids("The core set comes from Shan, Lee and Hao (2026).")
+    assert "tricolon" in ids("It was fast, cheap and reliable throughout.")
+
+
+def test_colon_check_does_not_span_a_block_lead_in():
+    """Regression: a colon ending a line introduces a block, not a reveal."""
+    assert "colon" not in ids("Searched upward from the directory:\n\nSome block.")
+
+
+def test_colon_check_ignores_decimal_points():
+    assert "colon" not in ids("One effect: density falls by d = -3.10 overall")

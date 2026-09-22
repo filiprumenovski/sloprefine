@@ -48,8 +48,16 @@ def check_tricolon(doc: Document) -> list[Hit]:
     for m in re.finditer(
         r"\b([A-Za-z][\w-]*), ([A-Za-z][\w-]*),? and ([A-Za-z][\w-]*)\b", doc.text
     ):
-        if len(WORD.findall(m.group(0))) <= 6:
-            hits.append(Hit("tricolon", m.start(), m.end(), m.group(0), "list of three"))
+        items = (m.group(1), m.group(2), m.group(3))
+        if len(WORD.findall(m.group(0))) > 6:
+            continue
+        # A list of proper nouns is a fact about the world, not a cadence
+        # choice: "Shan, Lee and Hao" and "Qwen, Gemma and Llama" are not
+        # tricolons. Sentence-initial capitals are excluded from the test.
+        mid_sentence = m.start() > 0 and doc.text[m.start() - 1] not in ".!?\n"
+        if mid_sentence and all(w[:1].isupper() for w in items):
+            continue
+        hits.append(Hit("tricolon", m.start(), m.end(), m.group(0), "list of three"))
     for m in re.finditer(
         r"\b(\w+)\s+[\w\s-]{1,28}[,.;]\s+\1\s+[\w\s-]{1,28}[,.;]\s+\1\s+[\w\s-]{1,28}[.,;]",
         doc.text,
@@ -86,7 +94,9 @@ def _emit_run(run: list) -> list[Hit]:
 
 def check_colon(doc: Document) -> list[Hit]:
     hits = []
-    for m in re.finditer(r"[a-z]{3,}:\s+[A-Za-z][^.\n]{0,70}\.", doc.text):
+    # [ \t]+ not \s+: a colon at the end of a line introduces a block, not a
+    # reveal. (?<!\d) so a decimal point does not end the clause.
+    for m in re.finditer(r"[a-z]{3,}:[ \t]+[A-Za-z][^.\n]{0,70}(?<!\d)\.", doc.text):
         hits.append(Hit("colon", m.start(), m.end(), m.group(0)))
     return hits
 
@@ -142,3 +152,63 @@ def run_checks(doc: Document, disabled=(), allow=frozenset()) -> list[Hit]:
             continue
         hits += check_vocab(doc, allow) if rule_id == "vocab" else fn(doc)
     return sorted(hits, key=lambda h: h.start)
+
+
+# ---------------------------------------------------------------- v0.2 checks
+
+OPENER_RUN = 3
+TEMPLATE_N = 4
+TEMPLATE_MIN_REPEATS = 3
+
+
+def check_opener(doc: Document) -> list[Hit]:
+    """Consecutive sentences beginning with the same word. Common openers
+    ('the', 'it', 'and') are excluded: repeating those is English, not slop."""
+    boring = {"the", "it", "and", "but", "a", "i", "we", "this", "that", "so"}
+    hits: list[Hit] = []
+    run: list = []
+    for span in doc.sentences:
+        word = span.words[0].lower() if span.words else ""
+        if run and word == run[0].words[0].lower():
+            run.append(span)
+            continue
+        if len(run) >= OPENER_RUN and run[0].words[0].lower() not in boring:
+            hits.append(Hit("opener", run[0].start, run[-1].end,
+                            f"{len(run)} sentences opening '{run[0].words[0]}'"))
+        run = [span] if word else []
+    if len(run) >= OPENER_RUN and run[0].words[0].lower() not in boring:
+        hits.append(Hit("opener", run[0].start, run[-1].end,
+                        f"{len(run)} sentences opening '{run[0].words[0]}'"))
+    return hits
+
+
+def check_template(doc: Document) -> list[Hit]:
+    """A 4-word frame reused three or more times. Frames made entirely of
+    function words are skipped; 'one of the most' is a phrase, 'in the case
+    of the' is grammar."""
+    tokens = [(m.group(0).lower(), m.start(), m.end())
+              for m in WORD.finditer(doc.text)]
+    if len(tokens) < TEMPLATE_N * TEMPLATE_MIN_REPEATS:
+        return []
+    from .stylometry import STOPWORDS
+
+    grams: dict[tuple[str, ...], list[tuple[int, int]]] = {}
+    for i in range(len(tokens) - TEMPLATE_N + 1):
+        window = tokens[i:i + TEMPLATE_N]
+        key = tuple(w for w, _, _ in window)
+        if all(w in STOPWORDS for w in key):
+            continue
+        grams.setdefault(key, []).append((window[0][1], window[-1][2]))
+
+    hits = []
+    for key, spans in grams.items():
+        if len(spans) >= TEMPLATE_MIN_REPEATS:
+            start, end = spans[0]
+            hits.append(Hit("template", start, end, " ".join(key),
+                            f"{len(spans)}x"))
+    return hits
+
+
+CHECKS["fromto"] = lambda d: _regex_check(d, "fromto")
+CHECKS["opener"] = check_opener
+CHECKS["template"] = check_template

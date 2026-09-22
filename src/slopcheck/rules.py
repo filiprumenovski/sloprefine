@@ -16,7 +16,15 @@ does not belong in this file; see CONTRIBUTING.md.
   [GK]   George Kao, "How To Write Without Sounding Like AI." Length variance,
          triads for rhythm, smooth transitions, generic over concrete.
   [FB]   Forbes, "The Seven Tells Of AI Writing." TED-talk punchline cadence.
-  [AE]   The Augmented Educator, "Ten Telltale Signs." The em dash.
+  [AE]   The Augmented Educator, "Ten Telltale Signs." The em dash, the
+         "from X to Y" range template.
+  [KUM23] Kumarage et al., arXiv:2303.03697. Stylometric detection: n-gram
+         repetition, phraseology, punctuation families.
+  [SLH26] Shan, Lee & Hao, arXiv:2608.27855 (2026). Stylometric footprint of
+         AI generation vs AI editing. See stylometry.py.
+  [LZM23] Liang et al., Patterns 2023. Detector bias against non-native
+         English writers. Motivates voice.py and the absence of absolute
+         stylometric thresholds.
 """
 
 from __future__ import annotations
@@ -198,6 +206,33 @@ _rule(
         r"\bat the end of the day\b", r"\bin many ways\b",
         r"\bto some extent\b", r"\bit'?s worth (?:remembering|considering)\b",
     ),
+)
+
+_rule(
+    id="fromto",
+    title="'from X to Y' range template",
+    citation="[AE]",
+    severity="medium",
+    why="A stock way to gesture at breadth without naming anything.",
+    patterns=(
+        r"\bfrom\s+[\w-]+(?:\s+[\w-]+){0,2}\s+to\s+[\w-]+(?:\s+[\w-]+){0,2}\b(?=[,.;])",
+    ),
+)
+
+_rule(
+    id="opener",
+    title="repeated sentence opener",
+    citation="[GK][KUM23]",
+    severity="medium",
+    why="Three or more consecutive sentences starting with the same word.",
+)
+
+_rule(
+    id="template",
+    title="repeated phrase template",
+    citation="[KUM23][WP]",
+    severity="medium",
+    why="The same 4-word frame reused; n-gram repetition is a known marker.",
 )
 
 _rule(

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "slopcheck"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lint prose against published AI-writing tells."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -22,6 +22,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+lm = ["transformers>=4.40", "torch>=2.0"]
 
 [project.scripts]
 slopcheck = "slopcheck.cli:main"

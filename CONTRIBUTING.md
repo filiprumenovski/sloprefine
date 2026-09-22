@@ -21,6 +21,23 @@ nobody. Prefer a rule that misses half the instances over one that fires on
 ordinary writing. If a word is load-bearing in some field, add it to
 `COMMONLY_LEGITIMATE` rather than dropping it from the lexicon.
 
+## Adding a stylometric feature
+
+Different bar. Features go in `stylometry.py` and must be computable with no
+language model, no API call, and no corpus-level statistics, so that a draft
+can be checked offline on a laptop and the number means the same thing
+tomorrow.
+
+Length-correct anything derived from token counts. Type-token ratio and
+Shannon entropy both fall with document length for arithmetic reasons, so an
+uncorrected feature measures how long the document is and reports it as style.
+
+Do not add a threshold. `stylometry.py` ships no population cutoffs, and the
+reason is in `voice.py`: a cutoff transferred between corpora is the documented
+failure mode of deployed detectors, and it lands hardest on non-native
+speakers. If a feature is only meaningful against a threshold, it belongs in
+the voiceprint layer as a deviation, not in the report as a judgement.
+
 ## Running everything
 
 ```bash

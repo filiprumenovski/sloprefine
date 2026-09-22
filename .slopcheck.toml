@@ -1,0 +1,6 @@
+# slopcheck's own configuration, which doubles as a worked example.
+# "landscape" and "robust" are on the excess-vocabulary list and are also
+# ordinary words in this repository's subject matter.
+[slopcheck]
+allow = ["landscape", "robust"]
+max_hits = 0

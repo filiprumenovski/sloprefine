@@ -6,61 +6,139 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import voice as voice_mod
 from .report import Config, analyze, render_json, render_text
 from .rules import COMMONLY_LEGITIMATE, RULES
 
+TEXT_SUFFIXES = (".txt", ".md", ".markdown", ".rst", ".text")
+
 EPILOG = """\
-exit codes:
-  0  under threshold
-  1  over threshold (use --max-hits / --max-per-1k, or config, to gate CI)
-  2  bad invocation
+examples:
+  slopcheck draft.md                        report
+  slopcheck draft.md --json                 machine-readable, with offsets
+  slopcheck voice build ~/writing -o me.json   baseline from your own prose
+  slopcheck draft.md --voice me.json        deviation from your own baseline
+  slopcheck draft.md --max-hits 0           exit 1 if anything fires
 
 config: .slopcheck.toml, searched upward from cwd
 
   [slopcheck]
   disable = ["colon", "hedge"]
-  allow = ["landscape", "robust"]   # domain words exempt from the lexicon
+  allow = ["landscape", "robust"]
+  voice = "me.json"
   max_hits = 0
+
+exit codes: 0 under threshold, 1 over, 2 bad invocation
 """
 
 
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="slopcheck",
-        description="Lint prose against published AI-writing tells.",
-        epilog=EPILOG,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+def _add_check_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("paths", nargs="*", help="files to check; - for stdin")
     p.add_argument("-q", "--quiet", action="store_true",
                    help="counts only, no matched spans")
-    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.add_argument("--json", action="store_true")
     p.add_argument("--no-color", action="store_true")
     p.add_argument("--disable", action="append", default=[], metavar="RULE")
-    p.add_argument("--allow", action="append", default=[], metavar="WORD",
-                   help="exempt a word from the lexicon check")
+    p.add_argument("--allow", action="append", default=[], metavar="WORD")
     p.add_argument("--allow-domain-words", action="store_true",
-                   help=f"exempt the usual false positives: "
-                        f"{', '.join(sorted(COMMONLY_LEGITIMATE))}")
-    p.add_argument("--max-hits", type=int, metavar="N")
-    p.add_argument("--max-per-1k", type=float, metavar="X")
+                   help=f"exempt: {', '.join(sorted(COMMONLY_LEGITIMATE))}")
+    p.add_argument("--voice", metavar="FILE",
+                   help="voiceprint JSON; report stylometry as deviation "
+                        "from your own baseline instead of raw values")
+    p.add_argument("--z-threshold", type=float, default=2.0, metavar="X")
+    p.add_argument("--lm", metavar="MODEL",
+                   help="optional causal LM for perplexity structure "
+                        '(needs pip install "slopcheck[lm]")')
     p.add_argument("--check-code-blocks", action="store_true",
                    help="do not exempt fenced code blocks in Markdown")
-    p.add_argument("--list-rules", action="store_true")
+    p.add_argument("--max-hits", type=int, metavar="N")
+    p.add_argument("--max-per-1k", type=float, metavar="X")
+
+
+COMMANDS = ("check", "voice", "rules")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Parser for `check`, which is also the default with no subcommand."""
+    p = argparse.ArgumentParser(
+        prog="slopcheck",
+        description="Lint prose against published AI-writing tells. "
+                    "Subcommands: check (default), voice, rules.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    _add_check_args(p)
     return p
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+def build_voice_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="slopcheck voice",
+        description="Build or inspect a voiceprint: a baseline of your own "
+                    "stylometry, so a draft is judged against you and not "
+                    "against a population threshold.",
+    )
+    sub = p.add_subparsers(dest="voice_command", required=True)
+    build = sub.add_parser("build", help="build a baseline from your writing")
+    build.add_argument("paths", nargs="+", help="files or directories")
+    build.add_argument("-o", "--output", required=True, metavar="FILE")
+    show = sub.add_parser("show", help="print a voiceprint")
+    show.add_argument("path")
+    return p
 
-    if args.list_rules:
-        for rule in RULES.values():
-            print(f"{rule.id:<13} {rule.severity:<7} {rule.title}")
-            print(f"{'':<13} {rule.citation}  {rule.why}")
+
+def _collect(paths: list[str]) -> list[Path]:
+    files: list[Path] = []
+    for raw in paths:
+        p = Path(raw)
+        if p.is_dir():
+            files += sorted(
+                f for f in p.rglob("*")
+                if f.is_file() and f.suffix.lower() in TEXT_SUFFIXES
+            )
+        elif p.is_file():
+            files.append(p)
+        else:
+            raise FileNotFoundError(raw)
+    return files
+
+
+def _cmd_rules() -> int:
+    for rule in RULES.values():
+        print(f"{rule.id:<13} {rule.severity:<7} {rule.title}")
+        print(f"{'':<13} {rule.citation}  {rule.why}")
+    return 0
+
+
+def _cmd_voice(args) -> int:
+    if args.voice_command == "show":
+        try:
+            vp = voice_mod.Voiceprint.load(args.path)
+        except (OSError, ValueError) as exc:
+            print(f"slopcheck: {exc}", file=sys.stderr)
+            return 2
+        print(vp.to_json())
         return 0
 
+    try:
+        files = _collect(args.paths)
+    except FileNotFoundError as exc:
+        print(f"slopcheck: no such file or directory: {exc}", file=sys.stderr)
+        return 2
+    docs = [(str(f), f.read_text(encoding="utf-8", errors="replace")) for f in files]
+    try:
+        vp = voice_mod.build(docs)
+    except ValueError as exc:
+        print(f"slopcheck: {exc}", file=sys.stderr)
+        return 2
+    Path(args.output).write_text(vp.to_json(), encoding="utf-8")
+    print(f"voiceprint written to {args.output}: {vp.n_docs} documents, "
+          f"{vp.n_words} words")
+    return 0
+
+
+def _cmd_check(args) -> int:
     if not args.paths:
-        build_parser().print_usage(sys.stderr)
         print("slopcheck: no input files", file=sys.stderr)
         return 2
 
@@ -70,17 +148,27 @@ def main(argv: list[str] | None = None) -> int:
         print(f"slopcheck: unknown rule(s): {sorted(unknown)}", file=sys.stderr)
         return 2
 
-    disabled = tuple(set(config.disabled) | set(args.disable))
+    voiceprint = None
+    voice_path = args.voice or getattr(config, "voice_path", None)
+    if voice_path:
+        try:
+            voiceprint = voice_mod.Voiceprint.load(voice_path)
+        except (OSError, ValueError) as exc:
+            print(f"slopcheck: voiceprint: {exc}", file=sys.stderr)
+            return 2
+
     allow = set(config.allow) | {w.lower() for w in args.allow}
     if args.allow_domain_words:
         allow |= COMMONLY_LEGITIMATE
     config = Config(
-        disabled=disabled,
+        disabled=tuple(set(config.disabled) | set(args.disable)),
         allow=frozenset(allow),
         max_hits=args.max_hits if args.max_hits is not None else config.max_hits,
         max_per_1k=(args.max_per_1k if args.max_per_1k is not None
                     else config.max_per_1k),
         skip_code_blocks=not args.check_code_blocks and config.skip_code_blocks,
+        voice=voiceprint,
+        z_threshold=args.z_threshold,
     )
 
     results = []
@@ -94,6 +182,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         results.append(analyze(str(f), f.read_text(encoding="utf-8"), config))
 
+    if args.lm:
+        _report_lm(results, args.lm)
+
     if args.json:
         print(render_json(results))
     else:
@@ -102,13 +193,46 @@ def main(argv: list[str] | None = None) -> int:
             render_text(r, verbose=not args.quiet, color=color) for r in results
         ))
 
-    failed = False
+    over = any(
+        (config.max_hits is not None and r.total > config.max_hits)
+        or (config.max_per_1k is not None and r.per_1k > config.max_per_1k)
+        for r in results
+    )
+    return 1 if over else 0
+
+
+def _report_lm(results, model_name: str) -> None:
+    from .scorer import TransformersScorer, measure
+    try:
+        scorer = TransformersScorer(model_name)
+    except ImportError as exc:
+        print(f"slopcheck: {exc}", file=sys.stderr)
+        return
     for r in results:
-        if config.max_hits is not None and r.total > config.max_hits:
-            failed = True
-        if config.max_per_1k is not None and r.per_1k > config.max_per_1k:
-            failed = True
-    return 1 if failed else 0
+        signal = measure(scorer, r.text)
+        print(f"{r.path}: perplexity {signal.perplexity:.1f} under "
+              f"{signal.scorer}, window CV {signal.window_cv:.2f} "
+              f"({signal.token_count} tokens). Signal only, not a verdict.")
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    command = argv[0] if argv and argv[0] in COMMANDS else "check"
+    if argv and argv[0] in COMMANDS:
+        argv = argv[1:]
+
+    if command == "rules":
+        return _cmd_rules()
+    if command == "voice":
+        return _cmd_voice(build_voice_parser().parse_args(argv))
+
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not args.paths:
+        parser.print_usage(sys.stderr)
+        print("slopcheck: no input files", file=sys.stderr)
+        return 2
+    return _cmd_check(args)
 
 
 if __name__ == "__main__":
