@@ -10,6 +10,7 @@ from pathlib import Path
 from . import cadence as cadence_mod
 from . import metrics as metrics_mod
 from . import paragraph as paragraph_mod
+from . import punch as punch_mod
 from . import reader as reader_mod
 from . import stylometry as stylometry_mod
 from . import templates as templates_mod
@@ -87,6 +88,7 @@ class Result:
     cadence: cadence_mod.Cadence | None = None
     structure: dict = field(default_factory=dict)
     templates: templates_mod.Templates | None = None
+    punch: punch_mod.Punch | None = None
     worst: list = field(default_factory=list)
     style: stylometry_mod.Stylometry | None = None
     reader: reader_mod.ReaderSignals | None = None
@@ -144,6 +146,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         notes = voice_mod.interpret(deviations, threshold=config.z_threshold)
     cad = cadence_mod.compute(doc)
     tmpl = templates_mod.compute(doc)
+    pun = punch_mod.compute(doc)
     structure = {
         "closer_ratio": paragraph_mod.closer_ratio(doc),
         "specifics_per_1k": paragraph_mod.specificity_per_1k(doc),
@@ -162,6 +165,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         worst=weighting_mod.worst_paragraphs(doc, hits, calibration=config.calibration),
         calibration=config.calibration,
         templates=tmpl,
+        punch=pun,
     )
 
 
@@ -210,6 +214,9 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
 
     m = result.metrics
     out.append("  " + "-" * 60)
+    if result.punch is not None:
+        colour = RED if result.punch.verdict == "punchy" else GREEN
+        out.append("  " + c(BOLD, "PUNCH   ") + c(colour, result.punch.render()))
     if result.cadence is not None:
         colour = RED if result.cadence.verdict == "choppy" else GREEN
         out.append("  " + c(BOLD, "cadence ") + c(colour, result.cadence.render()))
@@ -246,6 +253,8 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
         out.append("  " + c(YELLOW, "read  ") + note)
     for note in result.voice_notes:
         out.append("  " + c(YELLOW, "voice ") + note)
+    for w in (result.punch.warnings() if result.punch else []):
+        out.append("  " + c(RED, "PUNCH ") + w)
     for w in (result.cadence.warnings() if result.cadence else []):
         out.append("  " + c(RED, "CHOP  ") + w)
     for w in m.warnings():
@@ -272,6 +281,7 @@ def render_json(results: list[Result]) -> str:
             "score": r.score,
             "worst_paragraphs": [vars(p) for p in r.worst],
             "counts": r.counts(),
+            "punch": r.punch.as_dict() if r.punch else {},
             "cadence": r.cadence.as_dict() if r.cadence else {},
             "structure": r.structure,
             "templates": r.templates.as_dict() if r.templates else {},

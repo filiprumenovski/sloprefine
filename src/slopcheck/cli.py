@@ -45,6 +45,10 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--allow", action="append", default=[], metavar="WORD")
     p.add_argument("--allow-domain-words", action="store_true",
                    help=f"exempt: {', '.join(sorted(COMMONLY_LEGITIMATE))}")
+    p.add_argument("--profile", choices=("talk", "essay", "docs"),
+                   help="what this document is being judged as. talk pins the "
+                        "cadence rules to maximum weight and zeroes the "
+                        "parallelism budgets")
     p.add_argument("--calibration", metavar="FILE",
                    help="weight rules by measured enrichment instead of "
                         "hand-assigned severity (see slopcheck audit --save)")
@@ -280,6 +284,16 @@ def _cmd_check(args) -> int:
     allow = set(config.allow) | {w.lower() for w in args.allow}
     if args.allow_domain_words:
         allow |= COMMONLY_LEGITIMATE
+    if args.profile:
+        from .punch import PROFILES, apply
+        config = apply(args.profile, config)
+        profile = PROFILES[args.profile]
+        if profile.pins:
+            from .calibration import Calibration
+            calibration = calibration or Calibration(
+                weights={}, enrichment={}, verdicts={})
+            calibration.pins = dict(profile.pins)
+
     config = Config(
         disabled=tuple(set(config.disabled) | set(args.disable)),
         allow=frozenset(allow),

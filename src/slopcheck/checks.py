@@ -265,7 +265,8 @@ def check_closer(doc: Document, budget_ratio: float = 0.25) -> list[Hit]:
     found = closers(doc)
     if not found:
         return []
-    paragraphs = [p for p in doc.paragraphs if len(p) >= 15]
+    from .paragraph import _rateable
+    paragraphs = _rateable(doc)
     allowance = int(len(paragraphs) * budget_ratio)
     ranked = sorted(found, key=lambda c: (c.verbless, -c.words))
     over = ranked[allowance:]

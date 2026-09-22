@@ -46,6 +46,7 @@ class Calibration:
     n_human: int = 0
     corpus: str = ""
     note: str = ""
+    pins: dict[str, float] = field(default_factory=dict)
     version: int = 1
 
     @classmethod
@@ -98,7 +99,28 @@ class Calibration:
         return json.dumps(payload, indent=2, sort_keys=True)
 
     def weight(self, rule_id: str, default: float = 1.0) -> float:
+        """A pinned weight beats a measured one.
+
+        Pins exist so a user's judgement about their own register can
+        override a measurement taken somewhere else, without the measurement
+        being deleted. `disagreements()` keeps the conflict visible."""
+        if rule_id in self.pins:
+            return self.pins[rule_id]
         return self.weights.get(rule_id, default)
+
+    def disagreements(self) -> list[str]:
+        """Rules where a pin overrides what the corpus measured."""
+        out = []
+        for rule, pinned in sorted(self.pins.items()):
+            measured = self.weights.get(rule)
+            if measured is not None and abs(measured - pinned) > 0.5:
+                enrich = self.enrichment.get(rule, 0.0)
+                out.append(
+                    f"{rule}: pinned at {pinned:g}, but this corpus measured "
+                    f"enrichment {enrich:.2f}"
+                    + (" (fires MORE on human text)" if enrich < 1 else "")
+                )
+        return out
 
     def inverted(self) -> list[str]:
         return sorted(r for r, v in self.verdicts.items()
@@ -120,6 +142,8 @@ class Calibration:
         if self.inverted():
             lines.append("  NOT discriminating on this corpus: "
                          + ", ".join(self.inverted()))
+        for line in self.disagreements():
+            lines.append("  pinned over measurement: " + line)
         if self.note:
             lines.append("  " + self.note)
         return "\n".join(lines)

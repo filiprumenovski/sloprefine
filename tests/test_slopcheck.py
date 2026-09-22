@@ -991,9 +991,12 @@ def test_closer_ratio_separates_the_talk_versions():
 
 
 def test_closer_budget_reports_the_shortest_and_verbless_first():
+    # paragraphs must clear MIN_PARAGRAPH_FOR_RATIO to be counted at all
     text = _para(
-        "A paragraph that runs on for a while before it stops here. One gene.",
-        "Another paragraph that runs on for a while before stopping. It failed.",
+        "A paragraph that runs on for quite a while longer before it finally "
+        "stops right about here. One gene.",
+        "Another paragraph that also runs on for quite a while before it "
+        "stops in much the same way. It failed.",
     )
     hits = [h for h in analyze("x.txt", text, CLOSER).hits if h.rule_id == "closer"]
     assert "verbless" in hits[0].note
@@ -1376,3 +1379,67 @@ def test_fully_suppressed_file_does_not_crash():
     result = analyze("x.md", "<!-- slopcheck: off -->\nEverything here.\n", CFG)
     assert result.total == 0
     assert result.style is not None
+
+
+# ----------------------------------------- v1.4: the punch index and profiles
+
+from slopcheck import punch as punch_mod
+
+
+def test_punch_separates_the_talk_versions():
+    """The number that tracks the thing this project started over."""
+    choppy = punch_mod.compute(Document((CORPUS / "choppy_control.txt").read_text()))
+    clean = punch_mod.compute(Document((CORPUS / "clean_control.txt").read_text()))
+    assert choppy.verdict == "punchy" and clean.verdict == "ok"
+    assert choppy.punch > 10 * clean.punch
+
+
+def test_punch_aggregates_all_four_cadence_signals():
+    p = punch_mod.compute(Document((CORPUS / "choppy_control.txt").read_text()))
+    assert p.choppiness > 0 and p.closer_ratio > 0
+    assert p.doublets_per_1k > 0 and p.parallel_per_1k > 0
+
+
+def test_closer_ratio_cannot_exceed_one():
+    """Regression: closers were counted in every paragraph while the
+    denominator kept only the long ones, giving ratios of 250%."""
+    for name in ("choppy_control.txt", "clean_control.txt"):
+        doc = Document((CORPUS / name).read_text())
+        assert 0.0 <= paragraph.closer_ratio(doc) <= 1.0
+
+
+def test_talk_profile_zeroes_the_parallelism_budgets():
+    from dataclasses import replace
+    base = replace(Config(), parallel_budget_per_1k=3.0, doublet_budget_per_1k=3.0)
+    tuned = punch_mod.apply("talk", base)
+    assert tuned.parallel_budget_per_1k == 0.0
+    assert tuned.doublet_budget_per_1k == 0.0
+    assert tuned.min_sentence_words == 5
+
+
+def test_profiles_differ_in_what_they_pin():
+    assert punch_mod.PROFILES["talk"].pins["fragments"] == 5.0
+    assert "fragments" not in punch_mod.PROFILES["essay"].pins
+    assert punch_mod.PROFILES["docs"].pins == {}
+
+
+def test_a_pin_overrides_a_measurement_and_says_so():
+    """The fiction corpus measures fragments at 0.37, which would weight it
+    at zero. A talk pins it at 5. Both numbers stay visible so the
+    disagreement is not resolved by whichever file loaded last."""
+    root = Path(__file__).resolve().parents[1]
+    cal = cal_mod.Calibration.load(root / "calibration" / "fiction-2023.json")
+    assert cal.weight("fragments") == 0.0
+    cal.pins = dict(punch_mod.PROFILES["talk"].pins)
+    assert cal.weight("fragments") == 5.0
+    assert any("fragments" in d and "MORE on human" in d
+               for d in cal.disagreements())
+
+
+def test_cli_talk_profile_reports_punch(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    f = tmp_path / "a.txt"
+    f.write_text((CORPUS / "choppy_control.txt").read_text())
+    main([str(f), "--profile", "talk", "--no-color"])
+    out = capsys.readouterr().out
+    assert "punch" in out and "punchy" in out

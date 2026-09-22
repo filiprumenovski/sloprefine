@@ -98,7 +98,8 @@ def review(path: str, text: str, config: Config | None = None) -> Review:
         )
         for hit in result.hits
     ]
-    notes = ((result.cadence.warnings() if result.cadence else [])
+    notes = ((result.punch.warnings() if result.punch else [])
+             + (result.cadence.warnings() if result.cadence else [])
              + list(result.metrics.warnings()) + list(result.reader_notes)
              + list(result.voice_notes))
     limit = config.max_hits if config.max_hits is not None else 0

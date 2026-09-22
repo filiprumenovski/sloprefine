@@ -62,11 +62,21 @@ class Closer:
     verbless: bool
 
 
+MIN_PARAGRAPH_FOR_RATIO = 15
+
+
+def _rateable(doc: Document) -> list[Span]:
+    """Paragraphs the ratio is taken over. The numerator and denominator have
+    to be the same set: counting closers in every paragraph while dividing by
+    only the long ones produced ratios above 100%."""
+    return [p for p in doc.paragraphs if len(p) >= MIN_PARAGRAPH_FOR_RATIO]
+
+
 def closers(doc: Document) -> list[Closer]:
     """Paragraphs whose final sentence is short."""
     out: list[Closer] = []
     sentences, i = doc.sentences, 0
-    for para in doc.paragraphs:
+    for para in _rateable(doc):
         while i < len(sentences) and sentences[i].start < para.start:
             i += 1
         j = i
@@ -85,10 +95,10 @@ def closers(doc: Document) -> list[Closer]:
 
 
 def closer_ratio(doc: Document) -> float:
-    paragraphs = [p for p in doc.paragraphs if len(p) >= 15]
+    paragraphs = _rateable(doc)
     if not paragraphs:
         return 0.0
-    return round(len(closers(doc)) / len(paragraphs), 3)
+    return round(min(1.0, len(closers(doc)) / len(paragraphs)), 3)
 
 
 def specifics(text: str) -> list[str]:
