@@ -110,6 +110,17 @@ doublet rule was written for. A human caught it by reading.
 **v1.5.1.** Three consecutive version bumps failed silently, so the built
 wheel carried a version four releases behind the code.
 
+**v1.6.2.** The doublet path segmented on punctuation alone, so a balanced
+pair joined by "and" rather than by a comma was never formed and never
+tested. "one of them practical and one of them a warning" scored zero.
+Coordination splitting had been in the parallelism path since v0.7 and was
+never shared with doublets. Sharing one segmenter then exposed a pair that
+had sat in the clean control from the beginning, under a test asserting the
+control had none. My first repair of that sentence chopped it into three
+short ones, which removed the pair and raised syntactic template reuse from
+1.58 to 3.43, near the slop control's 3.57. That is the trade documented two
+entries above, walked into while fixing the thing above it.
+
 Every one was found by measuring something already written down as true, and
 each has a test holding it. I expect the list to keep growing, because the
 claims that go unmeasured are the ones stated most confidently.

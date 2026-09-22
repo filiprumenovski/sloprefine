@@ -275,11 +275,31 @@ def _anaphora_runs(units: list[tuple[int, int, str]]) -> list[tuple[int, int, in
     return out
 
 
+def _segment_coord(text: str) -> list[str]:
+    """Segments, with a trailing coordination split into its two arms.
+
+    "<clause>, a and b" is three units, not two. `find` has always done this;
+    `doublets` segmented on punctuation alone, so a balanced pair joined by
+    "and" instead of a comma was never paired and never tested. "A result
+    like this has two uses, one of them practical and one of them a warning"
+    scored zero for that reason.
+
+    Deliberately limited to a coordination in the LAST segment of a sentence
+    that already has punctuation. Splitting every "and" would break "bread
+    and butter" into a balanced pair.
+    """
+    pieces = _segment(text)
+    if len(pieces) >= 2 and _FINAL_COORD.search(pieces[-1]):
+        parts = _FINAL_COORD.split(pieces[-1], maxsplit=1)
+        pieces = pieces[:-1] + [parts[0], parts[-1]]
+    return pieces
+
+
 def doublets(doc: Document) -> list[Run]:
     """Balanced pairs, inside a sentence and across adjacent sentences."""
     out: list[Run] = []
     for span in doc.sentences:
-        segs = _segment(span.text)
+        segs = _segment_coord(span.text)
         cursor = span.start
         located = []
         for piece in segs:
@@ -309,11 +329,7 @@ def find(doc: Document) -> list[Run]:
     for span in doc.sentences:
         segments: list[tuple[int, int, str]] = []
         cursor = span.start
-        pieces = _segment(span.text)
-        if len(pieces) >= 2 and _FINAL_COORD.search(pieces[-1]):
-            head, _, tail = _FINAL_COORD.split(pieces[-1], maxsplit=1)[0], None, \
-                _FINAL_COORD.split(pieces[-1], maxsplit=1)[-1]
-            pieces = pieces[:-1] + [head, tail]
+        pieces = _segment_coord(span.text)
         for piece in pieces:
             idx = doc.text.find(piece, cursor)
             if idx < 0:

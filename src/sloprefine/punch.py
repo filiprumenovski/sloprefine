@@ -200,7 +200,7 @@ PROFILES: dict[str, Profile] = {
     "docs": Profile(
         name="docs",
         why="The register is technical documentation, where enumerating "
-            "things is the job, so the parallelism budget is loose and the floor is off.",
+            "things is the job, so parallelism runs on a loose budget with no sentence floor underneath it.",
         settings={
             "doublet_budget_per_1k": 3.0,
             "parallel_budget_per_1k": 3.0,
