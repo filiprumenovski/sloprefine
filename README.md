@@ -105,7 +105,7 @@ needs them.
 
 ### Rules
 
-<img src="assets/wanted.svg" alt="" align="right" width="210">
+<p align="center"><img src="assets/wanted.svg" alt="" width="240"></p>
 
 <!-- sloprefine: off (this table quotes the patterns it documents) -->
 
@@ -114,7 +114,8 @@ needs them.
 | `vocab` | delve, underscore, showcase, pivotal, crucial, intricate, realm, tapestry | Kobak et al. 2025; Juzek & Ward 2025 |
 | `emdash` | the "ChatGPT dash" | Augmented Educator; palvdm |
 | `negation` | "not just X, but Y", "it isn't A, it's B" | palvdm; Cherryleaf |
-| `tricolon` | "fast, cheap, and reliable"; threefold anaphora | Cherryleaf; Kao |
+| `parallel` | a repeated syntactic skeleton at any arity, over a budget | Cherryleaf; palvdm; Kao |
+| `doublet` | balance starting at two: "a study, or a written argument" | Cherryleaf; palvdm |
 | `fragments` | three or more very short sentences in a row | Forbes |
 | `transitions` | Moreover, Furthermore, It is important to note | Wikipedia; Kao |
 | `narrator` | "Here's the thing", "That's the paradox", "Let me be clear" | palvdm; Forbes |
@@ -127,8 +128,25 @@ needs them.
 | `recap` | "In short", "The takeaway is" | palvdm |
 | `hedge` | "That said", "At the end of the day" | Wikipedia |
 | `emoji` | rockets in prose | Wikipedia |
+| `runt` | a verbless sentence under the floor: "One plot." | Forbes; local |
+| `closer` | a punch landing in the same slot paragraph after paragraph | Forbes; palvdm |
+| `vague` | a 40-word paragraph naming no number, year, unit or proper noun | Kao; local |
+| `person` | "you" standing in for "one" or "we" | local |
 
 <!-- sloprefine: on -->
+
+**`vague` is the only requirement in the table.** Every other rule is a
+prohibition, and a prohibition can always be satisfied by writing less. A
+requirement cannot be, so a paragraph over 40 words that names no number,
+year, unit, proper noun or quoted term fails however it is phrased. What it
+lacks is a fact rather than a habit. "Several studies" fails and "Kobak
+2025" passes. Shorter paragraphs owe nothing, on the grounds that they are
+usually doing connective work.
+
+The abuse is obvious and `vague` cannot detect it. A model told to name a
+figure in each paragraph will duly produce one, and a wrong figure is worse
+than a vague phrase because it is checkable and false. Pair it with a
+fact-checking step, which this package does not provide.
 
 `sloprefine rules` prints all of them with citations and rationale.
 

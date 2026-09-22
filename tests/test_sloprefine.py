@@ -1684,6 +1684,20 @@ def test_citation_file_matches_the_package():
     assert "Rumenovski" in cff
 
 
+def test_readme_documents_every_rule():
+    """The rule table drifted: it still listed `tricolon`, removed in v0.7
+    when `parallel` replaced it at any arity, and it was missing six rules,
+    five of them high severity. A reader deciding whether to trust a score
+    reads that table, so a rule that fires without appearing in it is a
+    number with no stated basis."""
+    import re
+    root = Path(__file__).resolve().parents[1]
+    documented = set(re.findall(r"\|\s*`([a-z_]+)`\s*\|",
+                                (root / "README.md").read_text()))
+    assert set(RULES) - documented == set(), "undocumented rules"
+    assert documented - set(RULES) == set(), "documented but not a rule"
+
+
 # ------------------------------------------- v1.6: rename compatibility
 
 def test_both_suppression_spellings_work():
