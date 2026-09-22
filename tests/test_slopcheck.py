@@ -1443,3 +1443,26 @@ def test_cli_talk_profile_reports_punch(tmp_path, capsys, monkeypatch):
     main([str(f), "--profile", "talk", "--no-color"])
     out = capsys.readouterr().out
     assert "punch" in out and "punchy" in out
+
+
+def test_punch_index_inverts_on_the_fiction_corpus():
+    """Recorded because it is the strongest evidence against this index.
+
+    Human writing in calibration/'s corpus scores HIGHER on punch than
+    machine writing: mean 0.232 vs 0.163, and the two components carrying
+    70% of the weight (choppiness, closers) both invert. The index is kept
+    for the talk profile on one expert label, over this measurement, and the
+    disagreement is printed in punch.py rather than buried."""
+    assert punch_mod.PROFILE_THRESHOLDS["fiction"] > \
+        punch_mod.PROFILE_THRESHOLDS["talk"] * 2
+    # the talk threshold has no distribution behind it and must stay pinned
+    assert punch_mod.PROFILE_THRESHOLDS["talk"] == punch_mod.PUNCHY_THRESHOLD
+
+
+def test_clean_control_is_not_representative_of_human_prose():
+    """The fixture that anchored the first version of the index scores 0.05,
+    below anything in the real human corpus, because it was written to be
+    clean. Anchoring a scale on it was circular."""
+    clean = punch_mod.compute(Document((CORPUS / "clean_control.txt").read_text()))
+    assert clean.punch < 0.10          # the fixture
+    # real human median from the labelled corpus is ~0.21; this is not it

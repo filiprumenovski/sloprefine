@@ -29,15 +29,40 @@ staccato register, measured as one quantity.
     doublet density   balanced pairs per 1000 words
     parallel density  runs of three or more per 1000 words
 
-Scaled so each component is roughly 0 to 1 over the observed range, then
-averaged with choppiness and closers carrying the most, because those are the
-two a listener experiences directly. Measured on the documents available:
+Measured against real writing, and it inverts
+----------------------------------------------
+The first version of this index was anchored on two fixtures written by hand
+for this repository, where the clean one scored 0.05. That was circular. Run
+against the labelled corpus in calibration/:
 
-    choppy control   0.79    the talk as delivered (R0)   0.36
-    the same talk revised (R2/final)   0.10    human prose control   0.03
+    HUMAN   (New Yorker + Confederacy, n=17)   mean 0.232   53% punchy
+    MACHINE (GPT-3.5/4, Claude 1.3, n=51)      mean 0.163   25% punchy
 
-The thresholds come from four documents, one of which carries a real human
-label. Thin, and stated as thin.
+Human writing scores HIGHER. Per component:
+
+    choppiness     human 0.108   machine 0.046   enrichment 0.43
+    closer ratio   human 0.319   machine 0.153   enrichment 0.48
+    doublets/1k    human 2.43    machine 3.12    enrichment 1.29
+    triads+/1k     human 1.87    machine 2.42    enrichment 1.29
+
+The two components carrying 70% of the weight are the two that invert.
+Several New Yorker stories close 100% of their paragraphs on a short
+sentence. On that corpus this index is a better detector of professional
+fiction than of machine text.
+
+What to make of that
+--------------------
+The corpus is fiction and the marker is register-relative. A staccato
+paragraph close is craft in a short story and reads as machine-written in a
+conference talk, because scientists do not write that way and a listener
+notices the borrowed register. The construction is not the problem; the
+construction appearing where the register does not support it is.
+
+So the index is kept, the weights are kept for the talk profile, and the
+contrary measurement is printed here rather than buried. For fiction this
+index is worse than useless and PROFILE_THRESHOLDS reflects that. For a
+scientific talk the only evidence either way is one expert reaction, which
+is thin, and is the reason `talk` pins rather than measures.
 """
 
 from __future__ import annotations
@@ -56,6 +81,18 @@ SCALE = {"closers": 0.60, "doublets": 20.0, "parallel": 8.0}
 COMPONENT_WEIGHTS = {"choppiness": 0.40, "closers": 0.30,
                      "doublets": 0.20, "parallel": 0.10}
 PUNCHY_THRESHOLD = 0.20
+
+# Per profile, with provenance. A single global threshold is indefensible
+# once the human distribution is known to differ this much by register.
+PROFILE_THRESHOLDS = {
+    # one expert reaction to one talk; no distribution behind it
+    "talk": 0.20,
+    "essay": 0.35,
+    # 53% of New Yorker stories clear 0.20, so a fiction threshold there
+    # would flag half the corpus. Set above the human 90th percentile.
+    "fiction": 0.55,
+    "docs": 0.40,
+}
 
 
 @dataclass
