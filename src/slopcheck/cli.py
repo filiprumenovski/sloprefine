@@ -65,6 +65,9 @@ def _add_check_args(p: argparse.ArgumentParser) -> None:
                         "verbless ones ('It worked.' gets refused too)")
     p.add_argument("--parallel-budget", type=float, metavar="X",
                    help="allowed parallelism runs per 1000 words (default 1)")
+    p.add_argument("--closer-budget", type=float, metavar="X",
+                   help="share of paragraphs allowed to end on a short "
+                        "sentence (default 0.25)")
     p.add_argument("--max-choppiness", type=float, metavar="X",
                    help="exit 1 above this cadence score (0.17 is the "
                         "calibrated band; see cadence.py)")
@@ -269,6 +272,8 @@ def _cmd_check(args) -> int:
             else (5 if args.strict_runts and not config.min_sentence_words
                   else config.min_sentence_words)),
         runt_mode="all" if args.strict_runts else config.runt_mode,
+        closer_budget_ratio=(args.closer_budget if args.closer_budget is not None
+                             else config.closer_budget_ratio),
         parallel_budget_per_1k=(args.parallel_budget
                                 if args.parallel_budget is not None
                                 else config.parallel_budget_per_1k),

@@ -1,6 +1,6 @@
 """slopcheck: lint prose against published AI-writing tells."""
 
-from . import agent, audit, cadence, parallel, reader, scorer, stylometry, voice
+from . import agent, audit, cadence, paragraph, parallel, reader, scorer, stylometry, voice
 from .agent import Drift, Instruction, Review, drift, review, style_contract
 from .checks import Hit, run_checks
 from .metrics import Metrics, compute
@@ -10,7 +10,7 @@ from .stylometry import Stylometry
 from .text import Document
 from .voice import Voiceprint
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 __all__ = [
     "RULES",
     "Config",
@@ -30,6 +30,7 @@ __all__ = [
     "cadence",
     "compute",
     "drift",
+    "paragraph",
     "parallel",
     "reader",
     "render_json",

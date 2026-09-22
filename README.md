@@ -210,9 +210,10 @@ device carries most of the work. The failure is not three items, it is three ite
 slopcheck audit --ai out/gpt-drafts --human ~/writing/mine
 ```
 
-Everything above is dated. The fixes in this repository are being published right now.
-Models absorb them, then train on them, and some will be markers of machine
-text within a year. A tool built on a fixed list decays silently.
+Everything above is dated, and the `vocab` list shows why. Kobak et al.
+measured "delves" at 28x excess frequency in 2024 abstracts. Avoiding that
+word is now standard advice, which moves writers off it as fast as it moves
+models. A tool built on a fixed list decays silently.
 
 `audit` makes the decay measurable. Point it at a corpus of machine text and a
 corpus of human text and it reports, per rule, how much more often the pattern

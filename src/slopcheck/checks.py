@@ -34,12 +34,22 @@ def _regex_check(doc: Document, rule_id: str) -> list[Hit]:
     return hits
 
 
+_QUOTED_SPAN = re.compile(r"[\"\u201c][^\"\u201d\n]{1,80}[\"\u201d]|`[^`\n]{1,80}`")
+
+
 def check_vocab(doc: Document, allow: frozenset[str] = frozenset()) -> list[Hit]:
+    """Quoting a marker is not using one. A sentence that discusses "delves"
+    is talking about the word, and flagging it makes the tool unusable for
+    writing about the tool."""
+    quoted = [(m.start(), m.end()) for m in _QUOTED_SPAN.finditer(doc.text)]
     hits = []
     for m in WORD.finditer(doc.text):
         token = m.group(0).lower().replace("\u2019", "'")
-        if token in LEXICON and token not in allow:
-            hits.append(Hit("vocab", m.start(), m.end(), m.group(0)))
+        if token not in LEXICON or token in allow:
+            continue
+        if any(s <= m.start() < e for s, e in quoted):
+            continue
+        hits.append(Hit("vocab", m.start(), m.end(), m.group(0)))
     return hits
 
 
@@ -154,6 +164,8 @@ def run_checks(
     runt_mode: str = "verbless",
     allow_runts: frozenset[str] = frozenset(),
     parallel_budget_per_1k: float = 1.0,
+    closer_budget_ratio: float = 0.25,
+    vague_min_words: int = 40,
 ) -> list[Hit]:
     hits: list[Hit] = []
     for rule_id, fn in CHECKS.items():
@@ -165,6 +177,10 @@ def run_checks(
             hits += check_runt(doc, floor, runt_mode, allow_runts)
         elif rule_id == "parallel":
             hits += check_parallel(doc, parallel_budget_per_1k)
+        elif rule_id == "closer":
+            hits += check_closer(doc, closer_budget_ratio)
+        elif rule_id == "vague":
+            hits += check_vague(doc, vague_min_words)
         else:
             hits += fn(doc)
     return _drop_subsumed_tricolons(sorted(hits, key=lambda h: h.start))
@@ -271,6 +287,39 @@ def check_runt(
     return hits
 
 
+def check_closer(doc: Document, budget_ratio: float = 0.25) -> list[Hit]:
+    """Paragraphs ending on a short sentence, beyond the allowance.
+
+    The allowance covers the mildest cases, so the shortest and most
+    fragment-like closers are the ones reported.
+    """
+    from .paragraph import closers
+
+    found = closers(doc)
+    if not found:
+        return []
+    paragraphs = [p for p in doc.paragraphs if len(p) >= 15]
+    allowance = int(len(paragraphs) * budget_ratio)
+    ranked = sorted(found, key=lambda c: (c.verbless, -c.words))
+    over = ranked[allowance:]
+    return [
+        Hit("closer", c.span.start, c.span.end, c.span.text,
+            f"{c.words}w closer{', verbless' if c.verbless else ''}, "
+            f"budget {budget_ratio:.0%} of paragraphs")
+        for c in sorted(over, key=lambda c: c.span.start)
+    ]
+
+
+def check_vague(doc: Document, min_words: int = 40) -> list[Hit]:
+    from .paragraph import vague_paragraphs
+
+    return [
+        Hit("vague", p.start, p.end, p.text[:70],
+            f"{len(p)}w paragraph, no number, year, unit or proper noun")
+        for p in vague_paragraphs(doc, min_words)
+    ]
+
+
 def check_parallel(doc: Document, budget_per_1k: float = 1.0) -> list[Hit]:
     """Runs of repeated syntactic skeleton beyond the document's allowance.
 
@@ -284,8 +333,12 @@ def check_parallel(doc: Document, budget_per_1k: float = 1.0) -> list[Hit]:
     runs = find(doc)
     if not runs:
         return []
+    # The allowance covers the MILDEST runs, so the widest ones are what gets
+    # reported. Spending it on the widest first was the original ordering and
+    # it was backwards: it gave the tetracolon a free pass and flagged the
+    # tricolons underneath it.
     allowance = int(doc.word_count / 1000 * budget_per_1k)
-    over = sorted(runs, key=lambda r: (-r.arity, r.start))[allowance:]
+    over = sorted(runs, key=lambda r: (r.arity, r.start))[allowance:]
     return [
         Hit("parallel", r.start, r.end, r.preview,
             f"{r.arity} units, {r.level}, budget {budget_per_1k}/1k")
@@ -294,6 +347,8 @@ def check_parallel(doc: Document, budget_per_1k: float = 1.0) -> list[Hit]:
 
 
 CHECKS["parallel"] = check_parallel
+CHECKS["closer"] = check_closer
+CHECKS["vague"] = check_vague
 CHECKS["runt"] = check_runt
 CHECKS["fromto"] = lambda d: _regex_check(d, "fromto")
 CHECKS["opener"] = check_opener

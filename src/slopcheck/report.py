@@ -9,6 +9,7 @@ from pathlib import Path
 
 from . import cadence as cadence_mod
 from . import metrics as metrics_mod
+from . import paragraph as paragraph_mod
 from . import reader as reader_mod
 from . import stylometry as stylometry_mod
 from . import voice as voice_mod
@@ -27,6 +28,8 @@ class Config:
     runt_mode: str = "verbless"   # "verbless" | "all"
     allow_runts: frozenset[str] = frozenset()
     parallel_budget_per_1k: float = 1.0
+    closer_budget_ratio: float = 0.25
+    vague_min_words: int = 40
     max_choppiness: float | None = None
     max_hits: int | None = None
     max_per_1k: float | None = None
@@ -61,6 +64,8 @@ class Config:
             min_sentence_words=data.get("min_sentence_words", 0),
             runt_mode=data.get("runt_mode", "verbless"),
             parallel_budget_per_1k=data.get("parallel_budget_per_1k", 1.0),
+            closer_budget_ratio=data.get("closer_budget_ratio", 0.25),
+            vague_min_words=data.get("vague_min_words", 40),
             allow_runts=frozenset(data.get("allow_runts", [])),
             skip_code_blocks=data.get("skip_code_blocks", True),
             voice_path=data.get("voice"),
@@ -75,6 +80,7 @@ class Result:
     hits: list[Hit] = field(default_factory=list)
     metrics: metrics_mod.Metrics | None = None
     cadence: cadence_mod.Cadence | None = None
+    structure: dict = field(default_factory=dict)
     style: stylometry_mod.Stylometry | None = None
     reader: reader_mod.ReaderSignals | None = None
     reader_notes: list[str] = field(default_factory=list)
@@ -111,6 +117,8 @@ def analyze(path: str, text: str, config: Config) -> Result:
         floor=config.min_sentence_words, runt_mode=config.runt_mode,
         allow_runts=config.allow_runts,
         parallel_budget_per_1k=config.parallel_budget_per_1k,
+        closer_budget_ratio=config.closer_budget_ratio,
+        vague_min_words=config.vague_min_words,
     )
     style = stylometry_mod.compute(doc)
     deviations, notes = {}, []
@@ -118,6 +126,12 @@ def analyze(path: str, text: str, config: Config) -> Result:
         deviations = config.voice.compare(style)
         notes = voice_mod.interpret(deviations, threshold=config.z_threshold)
     cad = cadence_mod.compute(doc)
+    structure = {
+        "closer_ratio": paragraph_mod.closer_ratio(doc),
+        "specifics_per_1k": paragraph_mod.specificity_per_1k(doc),
+        "vague_paragraphs": len(paragraph_mod.vague_paragraphs(
+            doc, config.vague_min_words)),
+    }
     signals, reader_notes = None, []
     if config.audience:
         signals = reader_mod.compute(doc, config.audience)
@@ -126,6 +140,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         path=path, text=text, hits=hits, metrics=metrics_mod.compute(doc),
         style=style, deviations=deviations, voice_notes=notes,
         reader=signals, reader_notes=reader_notes, cadence=cad,
+        structure=structure,
     )
 
 
@@ -177,6 +192,10 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
     if result.cadence is not None:
         colour = RED if result.cadence.verdict == "choppy" else GREEN
         out.append("  " + c(BOLD, "cadence ") + c(colour, result.cadence.render()))
+    if result.structure:
+        out.append("  " + c(BOLD, "shape   ")
+                   + f"closers {result.structure['closer_ratio']:.0%} of paragraphs"
+                   + f"   specifics {result.structure['specifics_per_1k']}/1k")
     out.append(
         f"  sentences={m.sentences}  mean={m.mean_len}w  sd={m.stdev_len}  "
         f"CV={m.cv}  flat-run={m.longest_flat_run}"
@@ -225,6 +244,7 @@ def render_json(results: list[Result]) -> str:
             "per_1k": r.per_1k,
             "counts": r.counts(),
             "cadence": r.cadence.as_dict() if r.cadence else {},
+            "structure": r.structure,
             "metrics": r.metrics.as_dict(),
             "stylometry": r.style.as_dict() if r.style else {},
             "deviations": r.deviations,

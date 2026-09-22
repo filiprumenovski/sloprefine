@@ -236,6 +236,29 @@ _rule(
 )
 
 _rule(
+    id="closer",
+    title="paragraph ends on a punch",
+    citation="[FB][PALV]",
+    severity="high",
+    why="A short closing sentence arriving in the same slot paragraph after "
+        "paragraph. Positional, so rephrasing the punch does not satisfy it.",
+    fix="End the paragraph on the substantive sentence. Move the short one "
+        "earlier, or fold it into the sentence before it.",
+)
+
+_rule(
+    id="vague",
+    title="paragraph with no specifics",
+    citation="[GK][local]",
+    severity="high",
+    why="A paragraph of 40+ words containing no number, year, unit, proper "
+        "noun or quoted term. A requirement, not a prohibition: it cannot be "
+        "satisfied by cutting words.",
+    fix="Name the thing. A number, a date, a proper noun or a quoted term. "
+        "Do not invent one: an unchecked figure is worse than a vague phrase.",
+)
+
+_rule(
     id="parallel",
     title="parallelism over budget",
     citation="[CL][PALV][GK]",
