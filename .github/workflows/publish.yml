@@ -16,6 +16,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
+      # Job-level permissions REPLACE the workflow-level block rather than
+      # adding to it, so contents:read has to be restated here or checkout
+      # runs with contents:none and cannot fetch the repository.
+      contents: read
       id-token: write          # required for trusted publishing
     steps:
       - uses: actions/checkout@v4
