@@ -195,6 +195,9 @@ def _cmd_drift(argv: list[str]) -> int:
     p.add_argument("before")
     p.add_argument("after")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--profile", choices=("talk", "essay", "docs"),
+                   help="judge both revisions under this profile; without it "
+                        "drift and check disagree about the hit count")
     p.add_argument("--fail-on", default="churned,overfit,traded", metavar="LIST",
                    help="comma-separated verdicts that exit 1 "
                         "(default: churned,overfit,traded)")
@@ -203,9 +206,13 @@ def _cmd_drift(argv: list[str]) -> int:
         if not Path(path).is_file():
             print(f"slopcheck: no such file: {path}", file=sys.stderr)
             return 2
+    config = Config.load()
+    if args.profile:
+        from .punch import apply
+        config = apply(args.profile, config)
     d = drift(Path(args.before).read_text(encoding="utf-8"),
               Path(args.after).read_text(encoding="utf-8"),
-              Config.load())
+              config)
     if args.json:
         import json
         print(json.dumps(d.as_dict(), indent=2))
