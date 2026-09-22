@@ -7,10 +7,12 @@ documented markers of machine-generated writing comes out. The residue is
 reported rather than discarded, because about half of it turns out to be
 perfectly good writing.
 
-It is not a detector. It will not tell you who wrote something, and the one
-time it was pointed at real labelled data it decided that New Yorker short
-stories were more machine-like than GPT-4 was. I do not know how much of that
-is the corpus being fiction and how much of it is the rules being wrong.
+It is not a detector and will not tell you who wrote something. Pointed at
+labelled data it ranked New Yorker short stories as more machine-like than
+GPT-4. I did not expect that, and I do not know how much of it is the corpus
+being fiction rather than the rules being wrong. Either way it marks the
+boundary the tool works inside: what these rules measure is register, which a
+genre owns as much as an author does.
 
 ```bash
 sloprefine prompt --profile talk > .style-contract   # constrain generation
@@ -26,10 +28,10 @@ improvement.
 
 ## Most of it is not a banned-words list
 
-The rule table is the least interesting layer here. Pointed at the one
-labelled corpus it has been tried against, half of those rules failed to
-discriminate at all, and they are marked as such. What survives that is the
-measurement.
+The rule table is the smallest part of this. Half those rules failed to
+discriminate on the one labelled corpus they have been tried against, and
+each carries what the audit found. The measurement layers are the rest of the
+package.
 
 One rule is shaped differently from the rest. `vague` asks a long paragraph
 to name something checkable, and it is the only entry in the table that
@@ -60,8 +62,8 @@ two.
 
 Whether any of this holds on your material is checkable. `sloprefine audit
 --ai theirs/ --human mine/` measures which rules actually separate the two
-piles, and prints the ones that do not. That command is how half the table
-came to be marked unreliable.
+piles, and prints the ones that do not. That command is what put an audited
+number beside every rule in the table.
 
 Readers are not interchangeable either. Passing `--audience expert` changes
 the contract, because the two clusters in [MGF25] weight different features.
@@ -69,9 +71,9 @@ Experts reward variety of device and penalise a uniform positive tone, and
 the human writing they preferred scored lower on local coherence than the
 machine writing did.
 
-## Things this repository has been wrong about
+## Claims this package made, and the measurements that overturned them
 
-The commit log is the interesting documentation, in rough order of how much each one should have been obvious.
+Each entry is a claim that was written down as true, the measurement that contradicted it, and the version where that happened.
 
 **v0.5.** Three separate metrics agreed that a revision had improved the
 prose. All three were measuring the same artifact, because chopping text into
@@ -85,8 +87,8 @@ the milder ones underneath it. A test asserted this behaviour and passed.
 **v1.1.** Smith-Waterman local alignment was the obviously correct algorithm
 for matching parallel structure through noisy edges. Measured, it scored
 ordinary prose higher than the constructions it was built to catch. The module
-is still in the tree with the numbers in its docstring so that nobody,
-including its author, tries it again.
+is still in the tree with the numbers in its docstring so nobody spends a
+week on it again.
 
 **v1.2.1.** The syntactic-template measure was described as generalising every
 shape rule in the package. Breaking seven of the eight doublets in a real
@@ -108,10 +110,9 @@ doublet rule was written for. A human caught it by reading.
 **v1.5.1.** Three consecutive version bumps failed silently, so the built
 wheel carried a version four releases behind the code.
 
-Every one of these was found by measuring something that had already been
-written down as true. There is a test for each, and I expect this list to keep
-growing, because the claims that go unmeasured are the ones stated most
-confidently.
+Every one was found by measuring something already written down as true, and
+each has a test holding it. I expect the list to keep growing, because the
+claims that go unmeasured are the ones stated most confidently.
 
 ## This file is linted by the thing it documents
 
@@ -481,7 +482,7 @@ For a persistent agent config, put the contract where the model reads it:
 sloprefine prompt --voice me.json >> AGENTS.md
 ```
 
-## A worked example, including the embarrassing part
+## A worked example, and the trade it exposed
 
 The tool started as a script for cleaning the machine cadence out of a
 conference talk. On the rule layer it worked, taking that talk from 24 hits
