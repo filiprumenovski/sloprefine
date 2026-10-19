@@ -27,6 +27,14 @@ does not belong in this file; see CONTRIBUTING.md.
   [LZM23] Liang et al., Patterns 2023. Detector bias against non-native
          English writers. Motivates voice.py and the absence of absolute
          stylometric thresholds.
+  [MGF25] Marco, Gonzalo & Fresno, arXiv:2506.03310 (2025). Sentence rhythm
+         (stdev of sentence length) higher in human text across both
+         expert-annotated corpora. See reader.py.
+
+The six structural rules added in v1.7.0 (rhythm, tail, pointer, caveat,
+relverb, gloss) are measured against the Brown corpus in structure.py. Four
+of them are [local]: nobody has catalogued them yet, and the docstring there
+says what the measurement does and does not support.
 """
 
 from __future__ import annotations
@@ -386,6 +394,85 @@ _rule(
     severity="medium",
     why="The same 4-word frame reused; n-gram repetition is a known marker.",
     fix="Rephrase all but one occurrence. Reuse of a frame reads as filler.",
+)
+
+_rule(
+    id="rhythm",
+    title="flat paragraph rhythm",
+    citation="[PALV][GK][MGF25]",
+    severity="medium",
+    why="Every sentence in the paragraph lands in one narrow length band, "
+        "with none long enough to carry a subordinate clause. Measured over "
+        "sentences above the fragment ceiling only, so adding a fragment "
+        "does not satisfy it. Off unless rhythm_budget_ratio is set, because "
+        "it also fires on one human document in ten.",
+    fix="Let one sentence run long enough to carry the reasoning in a "
+        "subordinate clause. Adding a short sentence changes nothing, because "
+        "fragments are left out of the measure.",
+)
+
+_rule(
+    id="tail",
+    title="paragraph ends on a caveat or pointer",
+    citation="[local]",
+    severity="high",
+    why="A limitation or a pointer to a supplementary table arriving in the "
+        "closing slot paragraph after paragraph. Positional, so rewording the "
+        "caveat does not satisfy it.",
+    fix="End the paragraph on the finding. Move the caveat to the limitations "
+        "paragraph, or into the sentence it qualifies; fold the pointer into "
+        "a parenthesis on the number it supports.",
+)
+
+_rule(
+    id="pointer",
+    title="sentence that only points elsewhere",
+    citation="[local]",
+    severity="medium",
+    why="A sentence or clause whose whole content is that something exists "
+        "in a table or figure: 'comparisons are provided in Table S22'. It "
+        "tells the reader where a result is and not what it is.",
+    fix="State the number or finding and cite the table in parentheses, or "
+        "delete the sentence.",
+)
+
+_rule(
+    id="caveat",
+    title="caveats dispersed through the text",
+    citation="[WP][local]",
+    severity="medium",
+    why="Limitation sentences spread across most paragraphs instead of "
+        "gathered where a reader looks for them. Each is reasonable; "
+        "together they bury the findings. Dense limitation paragraphs are "
+        "forgiven first, so what gets reported is the scattered ones.",
+    fix="Move the caveat into the limitations paragraph or box. Keep it "
+        "inline only if the sentence it follows would mislead without it.",
+)
+
+_rule(
+    id="relverb",
+    title="stand-in relation verb over budget",
+    citation="[WP][local]",
+    severity="medium",
+    why="One verb that gestures at a relationship ('accompanied', "
+        "'mirrored', 'coincided with') reused instead of saying what the "
+        "relationship is. The `assoc` rule catches 'associated with'; this "
+        "catches its replacements once that phrase is banned.",
+    fix="Say what the analysis supports: 'accounted for half of', 'rose "
+        "with', 'preceded'. If it supports no specific relationship, report "
+        "the two numbers side by side.",
+)
+
+_rule(
+    id="gloss",
+    title="term defined twice",
+    citation="[local]",
+    severity="medium",
+    why="The same term glossed in the body and again in a box, glossary or "
+        "later section. A gloss repeated for a reader who already has it "
+        "reads as written for someone outside the field.",
+    fix="Define the term once, in the box or at first use, and delete the "
+        "other gloss.",
 )
 
 _rule(

@@ -190,7 +190,9 @@ def metrics(text: str = "", path: str = "", profile: Profile | None = None,
     shape = (
         f"closers {result.structure.get('closer_ratio', 0):.0%}  "
         f"specifics {result.structure.get('specifics_per_1k', 0)}/1k  "
-        f"vague paragraphs {result.structure.get('vague_paragraphs', 0)}"
+        f"vague paragraphs {result.structure.get('vague_paragraphs', 0)}  "
+        f"end on caveat/pointer {result.structure.get('tail_ratio', 0):.0%}  "
+        f"carry a caveat {result.structure.get('caveat_paragraph_share', 0):.0%}"
     )
     totals = (
         f"total {result.total} hits ({result.per_1k}/1k, "

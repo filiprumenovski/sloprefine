@@ -147,6 +147,11 @@ def run_checks(
     doublet_budget_per_1k: float = 2.0,
     vague_min_words: int = 40,
     person_budget_per_1k: float | None = None,
+    rhythm_budget_ratio: float | None = None,
+    tail_budget_ratio: float = 0.10,
+    pointer_budget_per_1k: float = 0.5,
+    caveat_budget_ratio: float = 0.10,
+    relverb_budget_per_1k: float = 0.5,
 ) -> list[Hit]:
     hits: list[Hit] = []
     for rule_id, fn in CHECKS.items():
@@ -166,6 +171,16 @@ def run_checks(
             hits += check_person(doc, person_budget_per_1k)
         elif rule_id == "vague":
             hits += check_vague(doc, vague_min_words)
+        elif rule_id == "rhythm":
+            hits += check_rhythm(doc, rhythm_budget_ratio)
+        elif rule_id == "tail":
+            hits += check_tail(doc, tail_budget_ratio)
+        elif rule_id == "pointer":
+            hits += check_pointer(doc, pointer_budget_per_1k)
+        elif rule_id == "caveat":
+            hits += check_caveat(doc, caveat_budget_ratio)
+        elif rule_id == "relverb":
+            hits += check_relverb(doc, relverb_budget_per_1k)
         else:
             hits += fn(doc)
     return sorted(hits, key=lambda h: h.start)
@@ -363,3 +378,123 @@ CHECKS["runt"] = check_runt
 CHECKS["fromto"] = lambda d: _regex_check(d, "fromto")
 CHECKS["opener"] = check_opener
 CHECKS["template"] = check_template
+
+
+# ------------------------------------------------- v1.7: paragraph structure
+# Budgets, not bans, for every rule here except `gloss`. Each allowance is at
+# least one, so a short document with a single pointer or a single closing
+# caveat owes nothing; the tell is the habit, not the instance.
+
+RHYTHM_BUDGET_RATIO = 0.10    # used when enabled; None by default
+TAIL_BUDGET_RATIO = 0.10      # share of paragraphs allowed to close on one
+POINTER_BUDGET_PER_1K = 0.5
+CAVEAT_BUDGET_RATIO = 0.10    # share of paragraphs allowed to carry a caveat
+RELVERB_BUDGET_PER_1K = 0.5   # uses of any one stand-in verb
+
+
+def _allowance(n: float) -> int:
+    return max(1, int(n))
+
+
+def check_rhythm(doc: Document, budget_ratio: float | None = None) -> list[Hit]:
+    """Flat paragraphs past the allowance. Off unless a budget is set: see
+    the measurement in structure.py. The flattest are reported, since the
+    allowance covers the paragraphs closest to the threshold."""
+    from .structure import flat_paragraphs
+
+    if budget_ratio is None:
+        return []
+    flats, eligible = flat_paragraphs(doc)
+    if not flats:
+        return []
+    over = sorted(flats, key=lambda f: -f.cv)[_allowance(eligible * budget_ratio):]
+    return [
+        Hit("rhythm", f.span.start, f.span.end, f.span.text[:70],
+            f"lengths {list(f.lengths)}, CV {f.cv:.2f}, "
+            f"budget {budget_ratio:.0%} of paragraphs")
+        for f in sorted(over, key=lambda f: f.span.start)
+    ]
+
+
+def check_tail(doc: Document, budget_ratio: float = TAIL_BUDGET_RATIO) -> list[Hit]:
+    """Paragraphs closing on a caveat or a pointer, past the allowance.
+    Pointer closers are reported ahead of caveat closers, since a caveat can
+    be load-bearing and a pointer never is."""
+    from .structure import tails
+
+    found, rated = tails(doc)
+    if not found:
+        return []
+    order = {"caveat": 0, "pointer": 1}
+    over = sorted(found, key=lambda t: (order[t[1]], t[0].start))
+    over = over[_allowance(rated * budget_ratio):]
+    return [
+        Hit("tail", span.start, span.end, span.text,
+            f"{kind} closer, budget {budget_ratio:.0%} of paragraphs")
+        for span, kind in sorted(over, key=lambda t: t[0].start)
+    ]
+
+
+def check_pointer(doc: Document, budget_per_1k: float = POINTER_BUDGET_PER_1K) -> list[Hit]:
+    from .structure import pointer_clauses
+
+    found = pointer_clauses(doc)
+    if not found:
+        return []
+    over = found[_allowance(doc.word_count / 1000 * budget_per_1k):]
+    return [Hit("pointer", c.start, c.end, c.text,
+                f"budget {budget_per_1k}/1k") for c in over]
+
+
+def check_caveat(doc: Document, budget_ratio: float = CAVEAT_BUDGET_RATIO) -> list[Hit]:
+    """Caveat sentences in paragraphs past the allowance. The allowance is
+    spent on the paragraphs with the most caveats, which are the
+    limitation paragraphs and the place caveats belong; what is left is the
+    scatter."""
+    from .structure import caveat_paragraphs
+
+    found, rated = caveat_paragraphs(doc)
+    if not found:
+        return []
+    ranked = sorted(found, key=lambda p: (-p[0], -p[1]))
+    over = ranked[_allowance(rated * budget_ratio):]
+    hits = [Hit("caveat", s.start, s.end, s.text,
+                f"caveats in {len(found)} of {rated} paragraphs, "
+                f"budget {budget_ratio:.0%}")
+            for _, _, inside in over for s in inside]
+    return sorted(hits, key=lambda h: h.start)
+
+
+def check_relverb(doc: Document, budget_per_1k: float = RELVERB_BUDGET_PER_1K) -> list[Hit]:
+    """Uses of one stand-in verb past the allowance for that verb. Families
+    are budgeted separately: the tell is one verb carrying the load."""
+    from .structure import standin_uses
+
+    # Floor of two: the second use of "reflects" in a 2,000-word essay is
+    # ordinary, and flagging it fired on a fifth of the human corpus.
+    allowance = max(2, int(doc.word_count / 1000 * budget_per_1k))
+    hits = []
+    for family, uses in standin_uses(doc).items():
+        for start, end, text in uses[allowance:]:
+            hits.append(Hit("relverb", start, end, text,
+                            f"'{family}' x{len(uses)}, budget "
+                            f"{budget_per_1k}/1k per verb"))
+    return sorted(hits, key=lambda h: h.start)
+
+
+def check_gloss(doc: Document) -> list[Hit]:
+    from .structure import repeated_glosses
+
+    return [
+        Hit("gloss", dup.start, dup.end, dup.text[:70],
+            f"'{dup.term}' also defined at L{doc.line(kept.start)} ({kept.kind})")
+        for dup, kept in repeated_glosses(doc)
+    ]
+
+
+CHECKS["rhythm"] = check_rhythm
+CHECKS["tail"] = check_tail
+CHECKS["pointer"] = check_pointer
+CHECKS["caveat"] = check_caveat
+CHECKS["relverb"] = check_relverb
+CHECKS["gloss"] = check_gloss

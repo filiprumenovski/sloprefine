@@ -142,6 +142,20 @@ short ones, which removed the pair and raised syntactic template reuse from
 1.58 to 3.43, near the slop control's 3.57. That is the trade documented two
 entries above, walked into while fixing the thing above it.
 
+**v1.7.0.** The review that proposed the structural rules said the manuscript
+used "accompanied" fifteen times. It uses it four times in 3,945 words. That
+is still thirteen times its rate in the Brown corpus, so the rule stands, but
+nobody counted before the number was written down. The same review proposed
+per-paragraph sentence-length variance as the test for flat rhythm. Flat
+paragraphs turned out about 3.5 times as common in the manuscript as in
+Brown, and the setting that catches any of them also fires on one human
+document in ten, so `rhythm` ships off. Its first version also counted
+fragments, and one five-word fragment cleared the flag, which is the v0.5
+artifact walked into again. The paragraph-template rule was meant to find
+runs of claim, number, caveat and pointer, and in the document it was built
+for it found a single run of two. What repeats is the closing slot, so
+`tail` is positional.
+
 Every one was found by measuring something already written down as true, and
 each has a test holding it. I expect the list to keep growing, because the
 claims that go unmeasured are the ones stated most confidently.
@@ -215,6 +229,12 @@ clone it and run `pip install -e ".[dev,mcp]"` instead.
 | `litotes` | "not a subtle one" where "a large one" was meant | local |
 | `copula` | "serves as", "stands as", "marks" where "is" was the word | Wikipedia |
 | `assoc` | "associated with", "linked to" standing in for the relationship | Wikipedia |
+| `tail` | paragraphs closing on a caveat or on "see Table S22", over a budget | local |
+| `pointer` | "comparisons are provided in Supplementary Table S22" | local |
+| `caveat` | limitation sentences scattered through the results, over a budget | Wikipedia; local |
+| `relverb` | one of "accompanied", "mirrored", "coincided with" carrying the load | Wikipedia; local |
+| `gloss` | a term defined in a box and again in the body | local |
+| `rhythm` | every sentence in a paragraph in one length band (off by default) | palvdm; Kao; Marco et al. |
 
 <!-- sloprefine: on -->
 
@@ -230,6 +250,17 @@ The abuse is obvious and `vague` cannot detect it. A model told to name a
 figure in each paragraph will duly produce one, and a wrong figure is worse
 than a vague phrase because it is checkable and false. Pair it with a
 fact-checking step, which this package does not provide.
+
+**The last six read paragraph structure.** They came out of revising a
+scientific manuscript drafted under a no-tells instruction, which passed the
+word rules and still read as machine prose. What was left was shape. Its
+paragraphs closed on caveats and on pointers to supplementary tables, its
+limitations were scattered through the results, and two terms were defined
+in Box 1 and again in the body. Every one of these rules is positional, a
+budget, or a repetition, so swapping in a synonym does not satisfy it.
+`structure.py` holds the measurement against 155 documents of human prose
+from the 1961 Brown corpus, and four of the six cite `local` because
+nobody has catalogued them yet.
 
 `sloprefine rules` prints all of them with citations and rationale.
 
@@ -469,6 +500,8 @@ disable = ["colon", "hedge"]
 allow = ["landscape", "robust"]   # domain words exempt from the lexicon
 voice = "me.json"
 max_hits = 0
+rhythm_budget_ratio = 0.10        # off unless set; see structure.py
+caveat_budget_ratio = 0.10        # share of paragraphs allowed a caveat
 ```
 
 The allowlist carries more weight than it looks. `landscape` is on the
