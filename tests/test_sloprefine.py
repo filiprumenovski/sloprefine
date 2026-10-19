@@ -1801,3 +1801,138 @@ def test_new_config_name_wins_over_the_old(tmp_path, monkeypatch):
     (tmp_path / ".slopcheck.toml").write_text('[slopcheck]\nmin_sentence_words = 9\n')
     monkeypatch.chdir(tmp_path)
     assert Config.load(tmp_path).min_sentence_words == 5
+
+
+# ------------------------------------------- v1.7: paragraph structure
+
+from sloprefine import structure
+
+STRUCTURE_FIRES = {
+    "tail": (
+        "The median fell from 30 runs to 16 runs over the period we examined here. "
+        "Supplementary Table S8 reports the comparisons and their intervals.\n\n"
+        "Large deposits rose from 124 a year to 459 a year across the same two periods. "
+        "These counts do not establish how many samples each deposit measured."),
+    "pointer": (
+        "Tool-specific comparisons are provided in Supplementary Table S22. "
+        "Supplementary Table S22 reports the components and their intervals."),
+    "caveat": (
+        "Mentions rose in later years for the deposits we could trace. "
+        "Mentions alone cannot show that the data were analysed again. "
+        "Most came from methods papers.\n\n"
+        "Release dates clustered on a few days each year in the record. "
+        "Who set each date does not establish where the delay arose. "
+        "The pattern began in 2018."),
+    "relverb": (
+        "Growth accompanied a shift in vendors. A rise in DIA accompanied it. "
+        "New groups accompanied both changes in the record."),
+    "gloss": (
+        "SDRF files, which link samples to data files, were rare. "
+        "Later we asked groups to create SDRF files, which link each sample to its runs."),
+}
+
+FLAT_A = ("PRIDE grew across contributor groups between 2013 and 2025 in our data. "
+          "Linked papers appeared in a wider set of journals over those years. "
+          "Large deposits became more common while typical deposits became smaller. "
+          "New instruments arrived in the record next to the older Orbitrap models.")
+FLAT_B = ("China supplied a larger share of deposits in 2025 than in 2016. "
+          "Germany grew more slowly over the same window of nine release years. "
+          "Most added storage sat in raw files written by Thermo Fisher instruments. "
+          "Final result tables took up four percent of the bytes inside archives.")
+
+
+@pytest.mark.parametrize("rule", sorted(STRUCTURE_FIRES))
+def test_structure_rule_fires(rule):
+    assert rule in ids(STRUCTURE_FIRES[rule]), rule
+
+
+def test_rhythm_is_off_by_default_and_fires_when_budgeted():
+    """Off by default because it fired on one 1961 human document in ten at
+    the setting that caught the manuscript it was built for. See the
+    measurement in structure.py."""
+    text = FLAT_A + "\n\n" + FLAT_B
+    assert "rhythm" not in ids(text)
+    hits = run_checks(Document(text), rhythm_budget_ratio=0.1)
+    assert [h.rule_id for h in hits] == ["rhythm"]
+
+
+def test_a_fragment_does_not_satisfy_rhythm():
+    """Regression for the trap documented in cadence.py: computed over every
+    sentence, one fragment pushes the CV past the threshold and clears the
+    flag, which rewards the staccato cadence. Fragments are excluded, so the
+    flag stands and the fix has to be a longer sentence."""
+    import statistics
+    padded = FLAT_B.replace("nine release years. ", "nine release years. It held up. ")
+    lengths = [len(s) for s in Document(padded).sentences]
+    assert statistics.pstdev(lengths) / statistics.mean(lengths) > structure.RHYTHM_CV
+    hits = run_checks(Document(FLAT_A + "\n\n" + padded), rhythm_budget_ratio=0.1)
+    assert "rhythm" in [h.rule_id for h in hits]
+
+
+@pytest.mark.parametrize("text", [
+    # A figure that shows a thing the sentence also describes is content.
+    ("The instrument is shown in Figure 1 and consists of a carbide knife. "
+     "The viscometer is shown in Figure 2 and uses a moving band."),
+    # A clause that carries a number is reporting a result.
+    "Figure 2 shows that runs fell from 30 to 16. Table 1 shows that 80% were recognised.",
+    "The results in Table 3 show a rise of 12% in the second year.",
+])
+def test_pointer_ignores_sentences_with_content(text):
+    assert "pointer" not in ids(text)
+
+
+def test_a_dense_limitations_paragraph_is_where_caveats_belong():
+    """The allowance is spent on the paragraph carrying the most caveats, so
+    a single limitations paragraph owes nothing however dense it is."""
+    text = ("Our counts describe deposits and not instruments in use. "
+            "Instrument labels do not establish ownership or purchase dates. "
+            "Mentions alone cannot show that data were analysed again. "
+            "Calendar windows cannot show whether a paper came before release. "
+            "Text mining gives an incomplete view of reuse in 2025.")
+    assert "caveat" not in ids(text)
+
+
+def test_relverb_allows_the_second_use():
+    """The floor is two. Flagging the second 'reflects' in a 2,000-word essay
+    fired on a fifth of the human corpus."""
+    assert "relverb" not in ids("Prices reflect demand. Wages reflect it too.")
+
+
+def test_gloss_ignores_one_definition_and_repeated_acronym_expansion():
+    """Expanding an acronym again in Methods is a journal convention, not a
+    gloss written for an outsider, so it is not counted as a definition."""
+    once = "SDRF files, which link samples to data files, were rare in 2016."
+    assert "gloss" not in ids(once)
+    expanded = ("Data-independent acquisition (DIA) rose after 2019.\n\n"
+                "We detected data-independent acquisition (DIA) from file names.")
+    assert "gloss" not in ids(expanded)
+
+
+def test_glossary_entry_is_kept_and_the_inline_gloss_reported():
+    """When a box or glossary defines a term, the inline gloss is the
+    duplicate, because the box is where a reader looks the term up."""
+    text = ("The effective number of groups rose fivefold from 2013 to 2025. "
+            "Effective numbers account for how evenly datasets are spread.\n\n"
+            "Effective number. Hill numbers express diversity as a count of "
+            "equally common categories.")
+    hits = [h for h in run_checks(Document(text)) if h.rule_id == "gloss"]
+    assert len(hits) == 1 and hits[0].text.startswith("Effective numbers account")
+
+
+def test_one_closing_pointer_in_a_short_document_is_allowed():
+    text = ("The median fell from 30 runs to 16 runs over the period we examined. "
+            "Supplementary Table S8 reports the comparisons and their intervals.")
+    assert "tail" not in ids(text)
+
+
+def test_structure_summary_reports_shares_with_denominators():
+    s = structure.summary(Document(STRUCTURE_FIRES["tail"]))
+    assert s["rated_paragraphs"] == 2 and s["tail_ratio"] == 1.0
+
+
+def test_structure_budgets_load_from_config(tmp_path):
+    path = tmp_path / ".sloprefine.toml"
+    path.write_text("[sloprefine]\nrhythm_budget_ratio = 0.2\ntail_budget_ratio = 0.3\n")
+    cfg = Config.from_toml(path)
+    assert cfg.rhythm_budget_ratio == 0.2 and cfg.tail_budget_ratio == 0.3
+    assert Config().rhythm_budget_ratio is None

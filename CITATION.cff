@@ -9,8 +9,8 @@ authors:
     email: "frumenovski@gmail.com"
 repository-code: "https://github.com/filiprumenovski/sloprefine"
 license: MIT
-version: 1.6.4
-date-released: 2026-09-22
+version: 1.7.0
+date-released: 2026-10-19
 abstract: >-
   A dependency-free prose linter that flags the documented surface markers of
   machine-generated text, measures cadence and syntactic template reuse, and

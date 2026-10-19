@@ -12,6 +12,7 @@ from . import metrics as metrics_mod
 from . import paragraph as paragraph_mod
 from . import punch as punch_mod
 from . import reader as reader_mod
+from . import structure as structure_mod
 from . import stylometry as stylometry_mod
 from . import templates as templates_mod
 from . import voice as voice_mod
@@ -38,6 +39,11 @@ class Config:
     doublet_budget_per_1k: float = 2.0
     vague_min_words: int = 40
     person_budget_per_1k: float | None = None  # None disables
+    rhythm_budget_ratio: float | None = None  # None disables; see structure.py
+    tail_budget_ratio: float = 0.10
+    pointer_budget_per_1k: float = 0.5
+    caveat_budget_ratio: float = 0.10
+    relverb_budget_per_1k: float = 0.5
     max_choppiness: float | None = None
     max_hits: int | None = None
     max_per_1k: float | None = None
@@ -78,6 +84,11 @@ class Config:
             doublet_budget_per_1k=data.get("doublet_budget_per_1k", 2.0),
             vague_min_words=data.get("vague_min_words", 40),
             person_budget_per_1k=data.get("person_budget_per_1k"),
+            rhythm_budget_ratio=data.get("rhythm_budget_ratio"),
+            tail_budget_ratio=data.get("tail_budget_ratio", 0.10),
+            pointer_budget_per_1k=data.get("pointer_budget_per_1k", 0.5),
+            caveat_budget_ratio=data.get("caveat_budget_ratio", 0.10),
+            relverb_budget_per_1k=data.get("relverb_budget_per_1k", 0.5),
             allow_runts=frozenset(data.get("allow_runts", [])),
             skip_code_blocks=data.get("skip_code_blocks", True),
             voice_path=data.get("voice"),
@@ -145,6 +156,11 @@ def analyze(path: str, text: str, config: Config) -> Result:
         doublet_budget_per_1k=config.doublet_budget_per_1k,
         vague_min_words=config.vague_min_words,
         person_budget_per_1k=config.person_budget_per_1k,
+        rhythm_budget_ratio=config.rhythm_budget_ratio,
+        tail_budget_ratio=config.tail_budget_ratio,
+        pointer_budget_per_1k=config.pointer_budget_per_1k,
+        caveat_budget_ratio=config.caveat_budget_ratio,
+        relverb_budget_per_1k=config.relverb_budget_per_1k,
     )
     style = stylometry_mod.compute(doc)
     deviations, notes = {}, []
@@ -159,6 +175,7 @@ def analyze(path: str, text: str, config: Config) -> Result:
         "specifics_per_1k": paragraph_mod.specificity_per_1k(doc),
         "vague_paragraphs": len(paragraph_mod.vague_paragraphs(
             doc, config.vague_min_words)),
+        **structure_mod.summary(doc),
     }
     signals, reader_notes = None, []
     if config.audience:
@@ -233,6 +250,13 @@ def render_text(result: Result, verbose: bool = True, color: bool = True) -> str
         out.append("  " + c(BOLD, "shape   ")
                    + f"closers {result.structure['closer_ratio']:.0%} of paragraphs"
                    + f"   specifics {result.structure['specifics_per_1k']}/1k")
+        st = result.structure
+        if st.get("rated_paragraphs"):
+            out.append("  " + c(BOLD, "paras   ")
+                       + f"end on caveat/pointer {st['tail_ratio']:.0%}"
+                       + f"   carry a caveat {st['caveat_paragraph_share']:.0%}"
+                       + f"   flat {st['flat_paragraph_share']:.0%}"
+                       + f"   of {st['rated_paragraphs']}")
     out.append(
         f"  sentences={m.sentences}  mean={m.mean_len}w  sd={m.stdev_len}  "
         f"CV={m.cv}  flat-run={m.longest_flat_run}"
